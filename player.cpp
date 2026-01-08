@@ -72,8 +72,8 @@ static constexpr float PLAYER_HEIGHT = 0.9f;  // ‘«Œ³‚©‚ç“ª‚Ü‚Å
 
 static const PlayerTuning k_defaultTune{
 	18.0f,           // jumpImpulse
-	9.8f * 1.4f,     // gravity
-	1000.0f / 50.0f, // moveAccel
+	20.4f,     // gravity
+	1000.0f / 40.0f, // moveAccel‰Á‘¬“x
 	10.0f,           // friction
 	DirectX::XM_2PI * 1.0f // rotSpeed
 };
@@ -268,10 +268,10 @@ void Player_Update(double elapsedTime)
 				dir = XMVector3Normalize(dir);
 
 				// ---- Mario move spec (tweak here) ----
-				constexpr float WALK_MAX = 2.0f;           // 0-50%
-				constexpr float DASH1_MAX = 5.5f;          // 50-75%
-				constexpr float DASH2_MAX = 8.0f;          // 75-100%
-				constexpr float BRAKE_TIME = 0.20f;        // brake duration
+				constexpr float WALK_MAX = 1.0f;           // 0-50%
+				constexpr float DASH1_MAX = 2.0f;          // 50-75%
+				constexpr float DASH2_MAX = 3.0f;          // 75-100%
+				constexpr float BRAKE_TIME = 0.30f;        // brake duration
 				constexpr float BRAKE_FRICTION = 25.0f;    // how quickly you stop while braking
 				constexpr float DASH2_STAGE1_DIST = 1.0f;  // 1 block
 
@@ -418,12 +418,12 @@ void Player_Update(double elapsedTime)
 		{
 			bool anyHit = false;
 
-			AABB playerAabb = Player_ConvertPositionToAABB(position);
-
 			for (int i = 0; i < Stage01_GetCount(); ++i)
 			{
 				const StageBlock* obj = Stage01_Get(i);
 				if (!obj) continue;
+
+				AABB playerAabb = Player_ConvertPositionToAABB(position);
 
 				const AABB& box = obj->aabb;
 
