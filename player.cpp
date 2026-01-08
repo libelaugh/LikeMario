@@ -73,7 +73,7 @@ static constexpr float PLAYER_HEIGHT = 0.9f;  // ‘«Œ³‚©‚ç“ª‚Ü‚Å
 static const PlayerTuning k_defaultTune{
 	18.0f,           // jumpImpulse
 	10.0f,     // gravity
-	-1.0f,           // terminalFall
+	-7.0f,           // terminalFall
 	1000.0f / 40.0f, // moveAccel‰Á‘¬“x
 	10.0f,           // friction
 	DirectX::XM_2PI * 1.0f // rotSpeed
@@ -223,10 +223,6 @@ void Player_Update(double elapsedTime)
 		if (ao.requestJump && prevGround)
 		{
 			velocity = XMVectorSetY(velocity, ao.jumpSpeedY);
-
-			if (XMVectorGetY(velocity) < g_tune.terminalFall) {
-				velocity = XMVectorSetY(velocity, g_tune.terminalFall);
-			}
 		}
 
 		// Gravity (skip while wall-grabbing, because the action overwrites velY)
@@ -234,6 +230,12 @@ void Player_Update(double elapsedTime)
 		{
 			const XMVECTOR gravity = XMVectorSet(0.0f, -g_tune.gravity, 0.0f, 0.0f);
 			velocity += gravity * dt;
+
+			// terminal fall (downward is negative)
+			if (g_tune.terminalFall < 0.0f && XMVectorGetY(velocity) < g_tune.terminalFall)
+			{
+				velocity = XMVectorSetY(velocity, g_tune.terminalFall);
+			}
 		}
 
 		// Vertical speed override (wall slide etc.)
