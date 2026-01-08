@@ -299,12 +299,16 @@ void Player_Update(double elapsedTime)
 					{
 						g_brakeTimer = BRAKE_TIME;
 						g_dash2AccelDist = 0.0f;
+
+						
 					}
 				}
 
 				if (g_brakeTimer > 0.0f)
 				{
 					g_brakeTimer -= dt;
+
+					SkinnedModel_UpdateAtTime(g_playerModel, 1.54f, 8);
 
 					// strong damping during brake
 					velXZ += (-velXZ) * (BRAKE_FRICTION * dt);
@@ -319,6 +323,10 @@ void Player_Update(double elapsedTime)
 				}
 				else
 				{
+					static float t = 0.0f;
+					t += dt;
+					SkinnedModel_Update(g_playerModel, t, 21);
+
 					// 2-stage accel for dash2:
 					// first 1 block -> DASH1, then allow DASH2
 					if (mag >= 0.75f && speedXZ > 0.05f) g_dash2AccelDist += speedXZ * dt;
@@ -502,10 +510,6 @@ void Player_Update(double elapsedTime)
 
 	XMStoreFloat3(&g_playerPos, position);
 	XMStoreFloat3(&g_playerVel, velocity);
-
-	static float t = 0.0f;
-	t += dt;
-	SkinnedModel_Update(g_playerModel, t, 21);
 }
 
 

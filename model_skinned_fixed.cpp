@@ -118,7 +118,7 @@ struct SKINNED_MODEL
 
     // 簡易キャッシュ
     int lastAnimIndex = -1;
-    float lastTimeSec = -1.0f;
+    double lastAnimTime = -1.0;
 
     // collision
     AABB local_aabb{};
@@ -559,31 +559,32 @@ void SkinnedModel_Release(SKINNED_MODEL* model)
 //------------------------------------------------------------------------------
 // Update (CPU skinning)
 //------------------------------------------------------------------------------
-void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex)
+static const aiAnimation* SkinnedModel_GetAnimation(SKINNED_MODEL* model, int& animationIndex)
 {
-    if (!model || !model->scene) return;
-
-    // アニメが無い場合は何もしない（読み込み時に bind pose を書いてある）
-    if (model->scene->mNumAnimations == 0) return;
+    if (!model || !model->scene) return nullptr;
+    if (model->scene->mNumAnimations == 0) return nullptr;
 
     animationIndex = (std::max)(0, (std::min)(animationIndex, (int)model->scene->mNumAnimations - 1));
+    return model->scene->mAnimations[animationIndex];
+}
 
-    // 簡易キャッシュ（同じ時刻で何回も Update しないように）
-    if (model->lastAnimIndex == animationIndex && model->lastTimeSec == timeSec)
+static void SkinnedModel_ApplyAnimation(SKINNED_MODEL* model,
+    const aiAnimation* anim,
+    int animationIndex,
+    double animTime)
+{
+    if (!model || !model->scene || !anim) return;
+
+    if (model->lastAnimIndex == animationIndex && model->lastAnimTime == animTime)
         return;
     model->lastAnimIndex = animationIndex;
-    model->lastTimeSec = timeSec;
+    model->lastAnimTime = animTime;
 
-    const aiAnimation* anim = model->scene->mAnimations[animationIndex];
-
-    double ticksPerSecond = (anim->mTicksPerSecond != 0.0) ? anim->mTicksPerSecond : 25.0;
-    double timeInTicks = (double)timeSec * ticksPerSecond;
-    double animTime = fmod(timeInTicks, anim->mDuration);
-
-    // boneFinal 初期化
-    for (auto& mtx : model->boneFinal) {
+    // boneFinal XV
+    for (auto& mtx : model->boneFinal)
+    {
         mtx = XMMatrixIdentity();
-    };
+    }
 
     ReadNodeHierarchy(
         animTime,
@@ -595,7 +596,7 @@ void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex
         model->globalInverse,
         model->boneFinal);
 
-    // メッシュごとに CPU skinning して VB 更新
+    
     ID3D11DeviceContext* ctx = Direct3D_GetContext();
 
     for (unsigned int m = 0; m < model->meshes.size(); ++m)
@@ -634,7 +635,7 @@ void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex
                 nOut += tn * w;
             }
 
-            // ボーンが無い（または重みが全部0）メッシュはバインドポーズのまま
+
             if (sumW <= 0.0f)
             {
                 pOut = p;
@@ -658,6 +659,78 @@ void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex
         }
     }
 }
+
+//------------------------------------------------------------------------------
+// Update (CPU skinning)
+//------------------------------------------------------------------------------
+void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex)
+{
+    const aiAnimation* anim = SkinnedModel_GetAnimation(model, animationIndex);
+    if (!anim) return;
+
+    double ticksPerSecond = (anim->mTicksPerSecond != 0.0) ? anim->mTicksPerSecond : 25.0;
+    double timeInTicks = (double)timeSec * ticksPerSecond;
+    double animTime = fmod(timeInTicks, anim->mDuration);
+
+    SkinnedModel_ApplyAnimation(model, anim, animationIndex, animTime);
+}
+
+void SkinnedModel_UpdateAtTime(SKINNED_MODEL* model, float timeSec, int animationIndex)
+{
+    const aiAnimation* anim = SkinnedModel_GetAnimation(model, animationIndex);
+    if (!anim) return;
+
+    double ticksPerSecond = (anim->mTicksPerSecond != 0.0) ? anim->mTicksPerSecond : 25.0;
+    double animTime = (double)timeSec * ticksPerSecond;
+    animTime = (std::max)(0.0, (std::min)(animTime, anim->mDuration));
+
+    SkinnedModel_ApplyAnimation(model, anim, animationIndex, animTime);
+}
+
+void SkinnedModel_UpdateClip(SKINNED_MODEL* model,
+    float timeSec,
+    int animationIndex,
+    float clipStartSec,
+    float clipEndSec,
+    bool holdLastFrame)
+{
+    const aiAnimation* anim = SkinnedModel_GetAnimation(model, animationIndex);
+    if (!anim) return;
+
+    double ticksPerSecond = (anim->mTicksPerSecond != 0.0) ? anim->mTicksPerSecond : 25.0;
+    double durationTicks = anim->mDuration;
+
+    double clipStartTicks = (double)clipStartSec * ticksPerSecond;
+    clipStartTicks = (std::max)(0.0, (std::min)(clipStartTicks, durationTicks));
+
+    double clipEndTicks = durationTicks;
+    if (clipEndSec > clipStartSec)
+    {
+        clipEndTicks = (double)clipEndSec * ticksPerSecond;
+        clipEndTicks = (std::max)(clipStartTicks, (std::min)(clipEndTicks, durationTicks));
+    }
+
+    double clipLength = clipEndTicks - clipStartTicks;
+    if (clipLength <= 0.0)
+    {
+        SkinnedModel_ApplyAnimation(model, anim, animationIndex, clipStartTicks);
+        return;
+    }
+
+    double timeInTicks = (std::max)(0.0, (double)timeSec * ticksPerSecond);
+    double animTime = clipStartTicks;
+    if (holdLastFrame)
+    {
+        animTime = clipStartTicks + (std::min)(timeInTicks, clipLength);
+    }
+    else
+    {
+        animTime = clipStartTicks + fmod(timeInTicks, clipLength);
+    }
+
+    SkinnedModel_ApplyAnimation(model, anim, animationIndex, animTime);
+}
+
 
 //------------------------------------------------------------------------------
 // Draw
