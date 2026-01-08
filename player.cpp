@@ -308,14 +308,17 @@ void Player_Update(double elapsedTime)
 				{
 					g_brakeTimer -= dt;
 
-					SkinnedModel_UpdateAtTime(g_playerModel, 1.54f, 8);
+					//SkinnedModel_UpdateAtTime(g_playerModel, 1.54f, 8);
+					static float brakeT = 0.0f;
+					brakeT += dt;
+					SkinnedModel_UpdateClip(g_playerModel, brakeT, 8, 1.40f, 1.54f, true);
 
 					// strong damping during brake
 					velXZ += (-velXZ) * (BRAKE_FRICTION * dt);
 
 					if (g_brakeTimer <= 0.0f)
 					{
-						velXZ = XMVectorZero(); // stop after 0.2s
+						velXZ = XMVectorZero(); // stop after 0.3s
 						speedXZ = 0.0f;
 					}
 
@@ -396,10 +399,16 @@ void Player_Update(double elapsedTime)
 		}
 	}
 
-	// no input -> reset dash2 distance
+	//ñ≥ì¸óÕåüèo
 	{
 		const float m2 = (in.moveX * in.moveX) + (in.moveY * in.moveY);
-		if (m2 <= 1.0e-6f) g_dash2AccelDist = 0.0f;
+		if (m2 <= 1.0e-6f) {
+			g_dash2AccelDist = 0.0f;
+
+			static float idleT = 0.0f;
+			idleT += dt;
+			SkinnedModel_Update(g_playerModel, idleT, 5);
+		}
 }
 
 
