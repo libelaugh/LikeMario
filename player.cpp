@@ -402,12 +402,39 @@ void Player_Update(double elapsedTime)
 	//無入力検出
 	{
 		const float m2 = (in.moveX * in.moveX) + (in.moveY * in.moveY);
-		if (m2 <= 1.0e-6f) {
+		const bool noMoveInput = (m2 <= 1.0e-6f);
+
+		// 待機に入ってからの累計時間
+		static float idleTotalT = 0.0f;
+
+		if (noMoveInput)
+		{
 			g_dash2AccelDist = 0.0f;
 
-			static float idleT = 0.0f;
-			idleT += dt;
-			SkinnedModel_Update(g_playerModel, idleT, 5);
+			idleTotalT += dt;
+
+			if (idleTotalT <= 8.0f)
+			{
+				// 0～8秒：1つ目（5番）
+				SkinnedModel_Update(g_playerModel, idleTotalT, 5);
+			}
+			else if (idleTotalT <= 8.0f + 3.0f)
+			{
+				// 8～11秒：2つ目（23番）
+				const float t = idleTotalT - 8.0f;
+				SkinnedModel_Update(g_playerModel, t, 23);
+			}
+			else
+			{
+				// 11秒以降：3つ目（14番）
+				const float t = idleTotalT - (8.0f + 3.0f);
+				SkinnedModel_Update(g_playerModel, t, 14);
+			}
+		}
+		else
+		{
+			// 入力が戻ったら待機遷移をリセット（次に止まったらまた 5→23→14）
+			idleTotalT = 0.0f;
 		}
 }
 
