@@ -51,6 +51,7 @@ struct PlayerTuning
 {
 	float jumpImpulse;
 	float gravity;
+	float terminalFall; // èIí[ë¨ìx
 	float moveAccel;
 	float friction;
 	float rotSpeed;

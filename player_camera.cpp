@@ -38,15 +38,14 @@ void PlayerCamera_Finalize()
 
 void PlayerCamera_Update(float elapsedTime)
 {
-    //XMVECTOR position = XMLoadFloat3(&Player_GetPosition()) - XMLoadFloat3(&Player_GetFront()) * 22.0f;
     XMVECTOR position = XMLoadFloat3(&Player_GetPosition());
-    position *= {1.0f, 0.0f, 1.0f};
+    XMVECTOR offset = { 0.0f, 0.5f, -3.5f };
+    position += offset;
+    XMFLOAT3 dir = { 0.0f, 0.0f, 1.0f };
+    XMVECTOR front = XMLoadFloat3(&dir);
+    XMVECTOR target = position + front;
+   // position += {0.0f, 10.0f, -7.0f};//カメラ位置
 
-    XMVECTOR target = position;
-
-    position += {0.0f, 3.0f, -5.0f};//カメラ位置
-
-    XMVECTOR front = XMVector3Normalize(target - position);
     XMStoreFloat3(&g_cameraPos, position);
     XMStoreFloat3(&g_cameraFront, front);
 
