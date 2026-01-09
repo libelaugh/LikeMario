@@ -54,8 +54,15 @@ void PlayerAction_Update(PlayerActionState& st,
     if (st.noLedgeGrabTimer > 0.0f)
         st.noLedgeGrabTimer = std::max(0.0f, st.noLedgeGrabTimer - dt);
 
+    const float jumpHeldTime = st.jumpHoldTime;
+    if (s.onGround && in.jumpHeld)
+        st.jumpHoldTime += dt;
+    else
+        st.jumpHoldTime = 0.0f;
+
     // Triggers
     const bool jumpTrg = Trigger(in.jumpHeld, st.prevJump);
+    const bool jumpRel = (!in.jumpHeld && st.prevJump);
     const bool spinTrg = Trigger(in.spinHeld, st.prevSpin);
     const bool crouchTrg = Trigger(in.crouchHeld, st.prevCrouch);
 
@@ -99,10 +106,15 @@ void PlayerAction_Update(PlayerActionState& st,
         {
             ChangeState(PlayerActionId::Crouch);
         }
-        else if (jumpTrg)
+        else if (jumpRel)
         {
             out.requestJump = true;
-            out.jumpSpeedY = p.jumpSpeedY;
+            if (jumpHeldTime >= p.jumpHoldStrongTime)
+                out.jumpSpeedY = p.jumpSpeedYStrong;
+            else if (jumpHeldTime >= p.jumpHoldMidTime)
+                out.jumpSpeedY = p.jumpSpeedYMid;
+            else
+                out.jumpSpeedY = p.jumpSpeedYWeak;
             ChangeState(PlayerActionId::Air);
         }
         else if (!s.onGround)
@@ -150,10 +162,15 @@ void PlayerAction_Update(PlayerActionState& st,
     {
         out.moveSpeedScale = p.crouchSpeedScale;
 
-        if (jumpTrg)
+        if (jumpRel)
         {
             out.requestJump = true;
-            out.jumpSpeedY = p.jumpSpeedY;
+            if (jumpHeldTime >= p.jumpHoldStrongTime)
+                out.jumpSpeedY = p.jumpSpeedYStrong;
+            else if (jumpHeldTime >= p.jumpHoldMidTime)
+                out.jumpSpeedY = p.jumpSpeedYMid;
+            else
+                out.jumpSpeedY = p.jumpSpeedYWeak;
             ChangeState(PlayerActionId::Air);
         }
 
@@ -237,4 +254,3 @@ void PlayerAction_Update(PlayerActionState& st,
 
     out.id = st.id;
 }
-

@@ -69,7 +69,11 @@ struct PlayerActionParams
     float ledgeDropDelay = 0.10f;     // prevent immediate re-grab after drop
 
     // Jump (action-level only; player.cpp applies to physics)
-    float jumpSpeedY = 7.0f;
+    float jumpSpeedYWeak = 5.0f;
+    float jumpSpeedYMid = 6.0f;
+    float jumpSpeedYStrong = 7.0f;
+    float jumpHoldMidTime = 0.10f;
+    float jumpHoldStrongTime = 0.20f;
 };
 
 // Internal state for action system.
@@ -87,6 +91,9 @@ struct PlayerActionState
 
     // Remember state before spin (optional)
     PlayerActionId prevBeforeSpin = PlayerActionId::Ground;
+
+    // Jump charge
+    float jumpHoldTime = 0.0f;
 };
 
 // Output of action system. player.cpp applies these to its physics variables.
@@ -124,6 +131,5 @@ void PlayerAction_Update(PlayerActionState& st,
     const PlayerActionSensors& s,
     float dt,
     PlayerActionOutput& out);
-
 
 #endif//PLAYER_ACTION_H

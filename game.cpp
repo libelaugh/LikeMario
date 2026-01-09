@@ -95,7 +95,7 @@ void Game_Initialize()
 	g_pModelWoodenBarrel = ModelLoad("model/Wooden_Barrel/Wooden_Barrel.fbx", 0.01, false);
 	g_pModelSword1 = ModelLoad("model/Sting-Sword lowpoly.fbx", 0.1, false);
 
-	Player_Initialize({ 0.0f, 3.0f, 0.0f }, { 0,0,1 }); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
+	Player_Initialize({ -0.7f, 3.0f, 1.5f }, { 0,0,1 }); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
 	PlayerCamera_Initialize();
 	//Map_Initialize();
@@ -154,7 +154,7 @@ void Game_Update(float elapsedTime)
 	// Gamepad input (XInput)
 
 	GamepadState pad{};
-	bool ok = Gamepad_GetState(0, &pad);
+    bool ok = Gamepad_GetState(0, &pad);
 
 	static float logT = 0.0f;
 	logT += elapsedTime;
@@ -165,7 +165,7 @@ void Game_Update(float elapsedTime)
 		sprintf_s(buf, "pad ok=%d lx=%.3f ly=%.3f\n", ok ? 1 : 0, pad.lx, pad.ly);
 		OutputDebugStringA(buf);
 	}
-	bool padConnected = Gamepad_GetState(0, &pad) && pad.connected;
+	bool padConnected = ok && pad.connected;
 
 	if (padConnected)
 	{
@@ -173,14 +173,6 @@ void Game_Update(float elapsedTime)
 		// 自分が前フレームから握ってる場合だけ更新する。
 		if (!Player_IsInputOverrideEnabled() || g_padDrivingPlayer)
 		{
-			auto ApplyDeadzone = [](float v)
-				{
-					return (fabsf(v) < 0.20f) ? 0.0f : v; //0.15〜0.25で調整
-				};
-
-			pad.lx = ApplyDeadzone(pad.lx);
-			pad.ly = ApplyDeadzone(pad.ly);
-
 			PlayerInput in{};
 			SetMoveX(in, pad.lx);
 			SetMoveY(in, pad.ly);

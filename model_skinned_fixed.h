@@ -40,7 +40,14 @@ SKINNED_MODEL* SkinnedModel_Load(const char* fileName, float scale, bool isBrend
 void SkinnedModel_Release(SKINNED_MODEL* model);
 
 // アニメ更新（timeSec：秒）
-void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex = 0);
+void SkinnedModel_Update(SKINNED_MODEL* model, float timeSec, int animationIndex = 0);//ループ再生
+void SkinnedModel_UpdateAtTime(SKINNED_MODEL* model, float timeSec, int animationIndex = 0);//切り抜き静止画
+void SkinnedModel_UpdateClip(SKINNED_MODEL* model,//切り抜き再生(ループON/OFF有り)
+    float timeSec,
+    int animationIndex,
+    float clipStartSec,
+    float clipEndSec,
+    bool holdLastFrame = true);
 
 // 描画（既存の Shader3D で描画）
 void SkinnedModel_Draw(SKINNED_MODEL* model, const DirectX::XMMATRIX& mtxWorld);
