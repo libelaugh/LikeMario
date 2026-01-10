@@ -36,6 +36,7 @@
 #include"item.h"
 #include <type_traits>
 #include <utility>
+#include <cmath>
 #include<DirectXMath.h>
 
 using namespace DirectX;
@@ -180,9 +181,15 @@ void Game_Update(float elapsedTime)
 
 	if (padConnected)
 	{
+		const float PAD_MOVE_EPS = 0.15f;
+		const bool padHasStickInput = (std::abs(pad.lx) > PAD_MOVE_EPS) || (std::abs(pad.ly) > PAD_MOVE_EPS);
+		const bool padHasTriggerInput = (pad.lt > 0.1f) || (pad.rt > 0.1f);
+		const bool padHasButtonInput = pad.a || pad.b || pad.x || pad.y || pad.start || pad.back || pad.lb || pad.rb;
+		const bool padActive = padHasStickInput || padHasTriggerInput || padHasButtonInput;
+
 		// Editor/MotionLab が既に override 中なら邪魔しない。
 		// 自分が前フレームから握ってる場合だけ更新する。
-		if (!Player_IsInputOverrideEnabled() || g_padDrivingPlayer)
+		if (padActive && (!Player_IsInputOverrideEnabled() || g_padDrivingPlayer))
 		{
 			PlayerInput in{};
 			SetMoveX(in, pad.lx);
@@ -196,6 +203,11 @@ void Game_Update(float elapsedTime)
 
 			Player_SetInputOverride(true, &in);
 			g_padDrivingPlayer = true;
+		}
+		else if (!padActive && g_padDrivingPlayer)
+		{
+			Player_SetInputOverride(false, nullptr);
+			g_padDrivingPlayer = false;
 		}
 	}
 	else
