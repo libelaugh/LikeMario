@@ -96,7 +96,7 @@ void PlayerAction_Update(PlayerActionState& st,
             ChangeState(PlayerActionId::Spin);
         }
 
-        else if (in.crouchHeld)
+        else if (in.crouchHeld && s.onGround)
         {
             ChangeState(PlayerActionId::Crouch);
         }
@@ -170,7 +170,7 @@ void PlayerAction_Update(PlayerActionState& st,
 
     case PlayerActionId::Crouch:
     {
-        out.moveSpeedScale = p.crouchSpeedScale;
+        out.moveSpeedScale = 0.0f;
 
         if (jumpTrg)
         {

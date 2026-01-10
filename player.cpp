@@ -306,6 +306,18 @@ void Player_Update(double elapsedTime)
 	PlayerActionOutput ao{};
 	PlayerAction_Update(g_act, g_actParam, ai, sen, dt, ao);
 
+	const bool isCrouch = (ao.id == PlayerActionId::Crouch);
+	if (isCrouch)
+	{
+		in.moveX = 0.0f;
+		in.moveY = 0.0f;
+		if (prevGround)
+		{
+			velocity = XMVectorSet(0.0f, XMVectorGetY(velocity), 0.0f, 0.0f);
+		}
+		g_brakeTimer = 0.0f;
+		g_dash2AccelDist = 0.0f;
+	}
 	
 	// Movement scale (crouch / spin etc.)
 	const float moveAccel = g_tune.moveAccel * ao.moveSpeedScale;
@@ -426,6 +438,8 @@ void Player_Update(double elapsedTime)
 
 
 	// ===== Move input (XZ) =====
+	if (!isCrouch)
+	{
 		// Camera-based move direction
 		XMVECTOR camFront = XMLoadFloat3(&PlayerCamera_GetFront());
 		camFront = XMVectorSetY(camFront, 0.0f);
@@ -600,57 +614,59 @@ void Player_Update(double elapsedTime)
 
 		}
 
-	// 無入力検出（待機アニメ用）
-	{
-		const float m2 = (in.moveX * in.moveX) + (in.moveY * in.moveY);
-		const bool noMoveInput = (m2 <= 1.0e-6f);
-
-		// 速度が残ってる間は「待機」扱いしない（滑ってる最中に idleTotalT を進めない）
-		const XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
-		const float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
-
-		// 「本当に待機」判定：無入力 + 地上 + ほぼ停止 +（ブレーキ/拘束/空中など除外）
-		const bool idleNow =
-			noMoveInput &&
-			prevGround &&                 // ここは現状のロジックに合わせて prevGround を使う
-			(speedXZ <= 0.05f) &&         // ★停止判定（必要なら 0.03f～0.10f で調整）
-			(g_brakeTimer <= 0.0f) &&
-			(ao.id == PlayerActionId::Ground);
-
-		// 待機に入ってからの累計時間
-		static float idleTotalT = 0.0f;
-		static bool  wasIdle = false;
-
-		if (idleNow)
+		// 無入力検出（待機アニメ用）
 		{
-			// 無入力(=待機)になった瞬間から累計開始
-			if (!wasIdle) idleTotalT = 0.0f;
-			wasIdle = true;
+			const float m2 = (in.moveX * in.moveX) + (in.moveY * in.moveY);
+			const bool noMoveInput = (m2 <= 1.0e-6f);
 
-			g_dash2AccelDist = 0.0f;
-			idleTotalT += dt;
+			// 速度が残ってる間は「待機」扱いしない（滑ってる最中に idleTotalT を進めない）
+			const XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
+			const float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
 
-			if (idleTotalT <= 8.0f)
+			// 「本当に待機」判定：無入力 + 地上 + ほぼ停止 +（ブレーキ/拘束/空中など除外）
+			const bool idleNow =
+				noMoveInput &&
+				prevGround &&                 // ここは現状のロジックに合わせて prevGround を使う
+				(speedXZ <= 0.05f) &&         // ★停止判定（必要なら 0.03f～0.10f で調整）
+				(g_brakeTimer <= 0.0f) &&
+				(ao.id == PlayerActionId::Ground);
+
+			// 待機に入ってからの累計時間
+			static float idleTotalT = 0.0f;
+			static bool  wasIdle = false;
+
+			if (idleNow)
 			{
-				SkinnedModel_Update(g_playerModel, idleTotalT, 5);
-			}
-			else if (idleTotalT <= 8.0f + 3.0f)
-			{
-				const float t = idleTotalT - 8.0f;
-				SkinnedModel_Update(g_playerModel, t, 23);
+				// 無入力(=待機)になった瞬間から累計開始
+				if (!wasIdle) idleTotalT = 0.0f;
+				wasIdle = true;
+
+				g_dash2AccelDist = 0.0f;
+				idleTotalT += dt;
+
+				if (idleTotalT <= 8.0f)
+				{
+					SkinnedModel_Update(g_playerModel, idleTotalT, 5);
+				}
+				else if (idleTotalT <= 8.0f + 3.0f)
+				{
+					const float t = idleTotalT - 8.0f;
+					SkinnedModel_Update(g_playerModel, t, 23);
+				}
+				else
+				{
+					const float t = idleTotalT - (8.0f + 3.0f);
+					SkinnedModel_Update(g_playerModel, t, 14);
+				}
 			}
 			else
 			{
-				const float t = idleTotalT - (8.0f + 3.0f);
-				SkinnedModel_Update(g_playerModel, t, 14);
+				wasIdle = false;
+				idleTotalT = 0.0f;
 			}
 		}
-		else
-		{
-			wasIdle = false;
-			idleTotalT = 0.0f;
-		}
-    }
+
+	}
 
 
 
@@ -869,8 +885,13 @@ void Player_Update(double elapsedTime)
 		// ===== Spin : Tポーズ固定 + 見た目回転 =====
 		static float s_spinVisT = 0.0f;
 
+		static float s_crouchT = 0.0f;
+		static bool s_prevCrouch = false;
+
 		if (g_act.id == PlayerActionId::Spin)
 		{
+			s_prevCrouch = false;
+			s_crouchT = 0.0f;
 			// 0.5秒で1回転（左回り）
 			constexpr float SPIN_TIME = 0.5f;
 			const float angSpeed = DirectX::XM_2PI / SPIN_TIME; // rad/s
@@ -888,8 +909,28 @@ void Player_Update(double elapsedTime)
 			// ここで終わり：下のジャンプ/着地アニメに行かせない
 			s_prevGrounded = g_isGrounded;
 		}
+		else if (g_act.id == PlayerActionId::Crouch)
+		{
+			if (!s_prevCrouch) s_crouchT = 0.0f;
+			s_crouchT += dt;
+
+			constexpr int ANIM_CROUCH = 7;
+			constexpr float CROUCH_CLIP_START = 0.19f;
+			constexpr float CROUCH_CLIP_END = 0.39f;
+			SkinnedModel_UpdateClip(g_playerModel, s_crouchT, ANIM_CROUCH,
+				CROUCH_CLIP_START, CROUCH_CLIP_END, true);
+
+			// Crouch ignores jump/land visual offsets
+			g_visFixLand = false;
+			g_visFixJump = false;
+
+			s_prevGrounded = g_isGrounded;
+			s_prevCrouch = true;
+		}
 		else
 		{
+			s_prevCrouch = false;
+			s_crouchT = 0.0f;
 			// スピンじゃない時は回転リセット
 			s_spinVisT = 0.0f;
 			g_spinYaw = 0.0f;

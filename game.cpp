@@ -156,15 +156,17 @@ void Game_Update(float elapsedTime)
 	GamepadState pad{};
     bool ok = Gamepad_GetState(0, &pad);
 
-	static float logT = 0.0f;
+	/*static float logT = 0.0f;
 	logT += elapsedTime;
 	if (logT > 0.5f)
 	{
 		logT = 0.0f;
 		char buf[256];
-		sprintf_s(buf, "pad ok=%d lx=%.3f ly=%.3f\n", ok ? 1 : 0, pad.lx, pad.ly);
+		sprintf_s(buf, "pad ok=%d lx=%.3f ly=%.3f  a=%d b=%d x=%d y=%d\n",
+			ok ? 1 : 0, pad.lx, pad.ly,
+			pad.a ? 1 : 0, pad.b ? 1 : 0, pad.x ? 1 : 0, pad.y ? 1 : 0);
 		OutputDebugStringA(buf);
-	}
+	}*/
 	bool padConnected = ok && pad.connected;
 
 	if (padConnected)
@@ -178,10 +180,9 @@ void Game_Update(float elapsedTime)
 			SetMoveY(in, pad.ly);
 
 			//まず移動だけ（ボタンは割り当て確定してから）
-			// SetJump(in, pad.a);
-			// SetDash(in, (pad.rt > 0.35f) || pad.rb);
-			// SetSpin(in, pad.x || pad.lb);
-			// SetCrouch(in, pad.b || (pad.lt > 0.35f));
+			SetJump(in, pad.a);
+			SetSpin(in, pad.x);
+			SetCrouch(in, pad.lt);
 
 
 			Player_SetInputOverride(true, &in);
