@@ -31,6 +31,9 @@
 #include"map_camera.h"
 #include"light_camera.h"
 #include"stage01_manage.h"
+#include "imgui_manager.h"
+#include "imgui.h"
+#include"item.h"
 #include <type_traits>
 #include <utility>
 #include<DirectXMath.h>
@@ -119,6 +122,12 @@ void Game_Initialize()
 
 	Stage01_Initialize(g_startStageJson);
 
+	Item_Initialize();
+	const int coinModel = Item_LoadModel("model/coin/Coin.fbx", 0.4f, false);
+	const int musicNoteModel = Item_LoadModel("model/musicNote/Music Note.fbx", 0.01f, false);
+	Item_Add({ 3.0f, 1.5f, 1.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
+	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
+	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
 }
 
 void Game_Finalize()
@@ -137,7 +146,7 @@ void Game_Finalize()
 
 
 	Stage01_Finalize();
-
+	Item_Finalize();
 }
 
 void Game_Update(float elapsedTime)
@@ -203,15 +212,16 @@ void Game_Update(float elapsedTime)
 	//Enemy_Update(elapsedTime);
 	//Sky_SetPosition(PlayerCamera_GetPosition());
 
-	if (KeyLogger_IsTrigger(KK_L)) {
+	/*if (KeyLogger_IsTrigger(KK_L)) {
 		g_isDebug = !g_isDebug;
 	}
 	if (g_isDebug) {
-		Camera_Update(elapsedTime); //キー対応のみのカメラ
+		Camera_Update(elapsedTime); //キー対応のみのカメラ 座標変換ミスってる
 	}
 	else {
 		PlayerCamera_Update(elapsedTime);
-	}
+	}*/
+	PlayerCamera_Update(elapsedTime);
 
 	//Bullet_Update(elapsedTime);
 
@@ -273,6 +283,7 @@ void Game_Update(float elapsedTime)
 
 
 	Stage01_Update(elapsedTime);
+	Item_Update();
 	/*ステージ切り替えはこんな感じ
 	const char* path = "stage02.json";
 
@@ -453,7 +464,7 @@ void Game_Draw()
 
 	Camera_SetMatrix(view, proj);//必要
 	Stage01_Draw();
-
+	Item_Draw();
 }
 
 void mapRendering() {
