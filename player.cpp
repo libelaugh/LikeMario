@@ -1103,8 +1103,8 @@ void Player_Update(double elapsedTime)
 			if (crouchFJumpStartThisFrame)
 			{
 				g_visFixLand = false;
-				g_visFixJump = true;                 // -3.0 をこのフレームから入れる
-				g_visFixCrouchForwardJump2 = false;  // 必要なら後で
+				g_visFixJump = false;
+				g_visFixCrouchForwardJump2 = false;
 			}
 			else
 			{
@@ -1197,10 +1197,6 @@ void Player_Update(double elapsedTime)
 					s_crouchForwardJumpT += dt;
 					SkinnedModel_UpdateClip(g_playerModel, s_crouchForwardJumpT, 7,
 						CROUCH_FJUMP_CLIP1_START, CROUCH_FJUMP_CLIP1_END, true);
-
-				s_landT += dt;
-				//SkinnedModel_UpdateAtTime(g_playerModel, s_landT, ANIM_LAND);
-				SkinnedModel_UpdateClip(g_playerModel, s_landT, ANIM_LAND, LAND_CLIP_START, LAND_CLIP_END, true);
 
 				if (clip1Len > 0.0f && s_crouchForwardJumpT >= clip1Len)
 				{
