@@ -166,6 +166,7 @@ static float g_spinYaw = 0.0f; // 見た目だけ回転
 // ===== Crouch forward jump =====
 static bool  g_crouchForwardJumpActive = false;
 static XMFLOAT3 g_crouchForwardJumpDir = { 0.0f, 0.0f, 1.0f };
+static float s_crouchFJumpMoveLockT = 0.0f;
 
 
 void Player_SetInputOverride(bool enable, const PlayerInput* input)
@@ -218,6 +219,14 @@ void Player_Update(double elapsedTime)
 {
 	const bool inputEnabled = !ImGuiManager::IsVisible();
 	const float dt = (float)elapsedTime;
+
+	// CrouchJump landing move-lock timer
+	if (s_crouchFJumpMoveLockT > 0.0f)
+	{
+		s_crouchFJumpMoveLockT -= dt;
+		if (s_crouchFJumpMoveLockT < 0.0f) s_crouchFJumpMoveLockT = 0.0f;
+	}
+
 
 	static bool  s_prevGrounded = true;
 	static bool  s_playLand = false;
@@ -282,6 +291,14 @@ void Player_Update(double elapsedTime)
 		// in.dash / in.spin / in.crouch : map if you want
 	}
 
+	// CrouchJump後の硬直：少しの間だけ移動入力を無効化（ジャンプ/スピン等のボタンはそのまま）
+	if (s_crouchFJumpMoveLockT > 0.0f && prevGround)
+	{
+		in.moveX = 0.0f;
+		in.moveY = 0.0f;
+	}
+
+
 	const PlayerActionId prevActionId = g_act.id;
 	const float rawMoveX = in.moveX;
 	const float rawMoveY = in.moveY;
@@ -316,13 +333,30 @@ void Player_Update(double elapsedTime)
 	PlayerActionOutput ao{};
 	PlayerAction_Update(g_act, g_actParam, ai, sen, dt, ao);
 
+	// --- Cancel crouch forward jump when spin starts (in air) ---
+	{
+		const bool isSpin = (g_act.id == PlayerActionId::Spin);
+		const bool spinStarted = (isSpin && !s_prevSpin);
+
+		if (spinStarted && g_crouchForwardJumpActive)
+		{
+			g_crouchForwardJumpActive = false;
+
+			// スピンでCrouchJumpのXZ推進を中止：通常ジャンプ落下と同じ（ベースXZを消す）
+			velocity = XMVectorSet(0.0f, XMVectorGetY(velocity), 0.0f, 0.0f);
+		}
+	}
+
 	const float CROUCH_FORWARD_JUMP_INPUT_MIN = 0.20f;
 	const float CROUCH_FORWARD_JUMP_FORWARD_DOT = cosf(DirectX::XMConvertToRadians(60.0f));
 	const float CROUCH_FORWARD_JUMP_Y_MULT = 0.9f;
-	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 7.0f;
+	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 6.5f;
 	const float CROUCH_FORWARD_JUMP_ACCEL_TIME = 0.5f;
 	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.04f;
 	const float CROUCH_FORWARD_JUMP_INPUT_SPEED = 1.0f;
+	const float CROUCH_FORWARD_JUMP_LAND_MOVE_LOCK = 0.18f;
+
+
 
 
 	const float rawMoveMagSq = (rawMoveX * rawMoveX) + (rawMoveY * rawMoveY);
@@ -464,6 +498,12 @@ void Player_Update(double elapsedTime)
 				const bool isSpin = (g_act.id == PlayerActionId::Spin);
 				const bool spinStarted = (isSpin && !s_prevSpin);
 
+				if (spinStarted && g_crouchForwardJumpActive)
+				{
+					g_crouchForwardJumpActive = false;
+					velocity = XMVectorSet(0.0f, XMVectorGetY(velocity), 0.0f, 0.0f);
+				}
+
 				if (isSpin && !prevGround)
 				{
 					// ① このフレームに入れた重力を打ち消す（= 落下にかかってる力を0にする）
@@ -515,6 +555,10 @@ void Player_Update(double elapsedTime)
 
 
 	// ===== Move input (XZ) =====
+	const bool isAirLike =
+		(g_act.id == PlayerActionId::Air) ||
+		(!prevGround && g_act.id == PlayerActionId::Spin);
+
 	if (!isCrouch)
 	{
 		// Camera-based move direction
@@ -551,11 +595,8 @@ void Player_Update(double elapsedTime)
 			float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
 
 			// Start brake: input dir is >=120 deg away from current move dir
-			// cos(120°) = -0.5
-			// Start brake: ground only (avoid weird brake state in air)
 			if (g_act.id != PlayerActionId::Air)
 			{
-				// cos(120°) = -0.5
 				if (g_brakeTimer <= 0.0f && mag > 1.0e-3f && speedXZ > 0.2f)
 				{
 					XMVECTOR velDir = velXZ * (1.0f / speedXZ);
@@ -578,7 +619,7 @@ void Player_Update(double elapsedTime)
 
 			if (!s_playLand)
 			{
-				if (g_act.id != PlayerActionId::Air)
+				if (!isAirLike)
 				{
 					// ===== 地上（今までのまま）=====
 					if (g_brakeTimer > 0.0f)
@@ -715,7 +756,7 @@ void Player_Update(double elapsedTime)
 
 		}
 
-		else if (g_act.id == PlayerActionId::Air && g_crouchForwardJumpActive)
+		else if (isAirLike && g_crouchForwardJumpActive)
 		{
 			// Crouch forward jump keeps XZ momentum even without input.
 			XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
@@ -797,7 +838,7 @@ void Player_Update(double elapsedTime)
 		const bool hasInput = (inMagSq > 1.0e-6f);
 
 		float fric = g_tune.friction;
-		if (g_act.id == PlayerActionId::Air) fric = 0.0f;
+		if (isAirLike) fric = 0.0f;
 		if (hasInput) fric *= 0.15f;      // 入力中は滑りやすく（加速が勝つ）
 		if (g_brakeTimer > 0.0f) fric = 0.0f; // ブレーキ中は上で減衰させてる
 
@@ -969,6 +1010,15 @@ void Player_Update(double elapsedTime)
 			s_doubleJumpWindowT = DOUBLE_JUMP_WINDOW;
 			s_airFromGroundJump = false;
 		}
+		// Landed from CrouchJump: stop XZ and lock move input for a short time
+		if (g_crouchForwardJumpActive)
+		{
+			s_crouchFJumpMoveLockT = std::max(s_crouchFJumpMoveLockT, CROUCH_FORWARD_JUMP_LAND_MOVE_LOCK);
+			velocity = XMVectorSet(0.0f, XMVectorGetY(velocity), 0.0f, 0.0f);
+			g_brakeTimer = 0.0f;
+			g_dash2AccelDist = 0.0f;
+		}
+
 	}
 
 	if (g_isGrounded && (s_doubleJumpWindowT > 0.0f) && (s_jumpBufferT > 0.0f))
@@ -1048,10 +1098,20 @@ void Player_Update(double elapsedTime)
 			SkinnedModel_UpdateClip(g_playerModel, s_crouchT, ANIM_CROUCH,
 				CROUCH_CLIP_START, CROUCH_CLIP_END, true);
 
-			// Crouch ignores jump/land visual offsets
-			g_visFixLand = false;
-			g_visFixJump = false;
-			g_visFixCrouchForwardJump2 = false;
+			const bool crouchFJumpStartThisFrame = (ao.requestJump && prevGround && crouchForwardJumpTrg);
+
+			if (crouchFJumpStartThisFrame)
+			{
+				g_visFixLand = false;
+				g_visFixJump = true;                 // -3.0 をこのフレームから入れる
+				g_visFixCrouchForwardJump2 = false;  // 必要なら後で
+			}
+			else
+			{
+				g_visFixLand = false;
+				g_visFixJump = false;
+				g_visFixCrouchForwardJump2 = false;
+			}
 
 			s_prevGrounded = g_isGrounded;
 			s_prevCrouch = true;
