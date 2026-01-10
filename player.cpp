@@ -1,6 +1,6 @@
-/*==============================================================================
+ï»¿/*==============================================================================
 
-	ƒvƒŒƒCƒ„[§Œä[player.h]
+	ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼åˆ¶å¾¡[player.h]
 														 Author : Kouki Tanaka
 														 Date   : 2025/10/31
 --------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ using namespace DirectX;
 
 static void DumpLogAABB(const char* name, const AABB& a)
 {
-	//¦ƒƒOo—Í‚Í‚©‚È‚èd‚¢‚©‚ç‘½—p’ˆÓ
+	//â€»ãƒ­ã‚°å‡ºåŠ›ã¯ã‹ãªã‚Šé‡ã„ã‹ã‚‰å¤šç”¨æ³¨æ„
 	const float sx = a.max.x - a.min.x;
 	const float sy = a.max.y - a.min.y;
 	const float sz = a.max.z - a.min.z;
@@ -52,7 +52,7 @@ static inline float ClampFloat(float v, float lo, float hi)
 	return v;
 }
 
-// ‚¿‚å‚¢‰º‚ğ’²‚×‚Äu°‚ª‚ ‚év‚È‚ç groundY(°‚Ìã–ÊY) ‚ğ•Ô‚·
+// ã¡ã‚‡ã„ä¸‹ã‚’èª¿ã¹ã¦ã€ŒåºŠãŒã‚ã‚‹ã€ãªã‚‰ groundY(åºŠã®ä¸Šé¢Y) ã‚’è¿”ã™
 static bool ProbeGroundY(const DirectX::XMVECTOR& position, float eps, float* outGroundY)
 {
 	if (outGroundY) *outGroundY = 0.0f;
@@ -70,15 +70,15 @@ static bool ProbeGroundY(const DirectX::XMVECTOR& position, float eps, float* ou
 
 		const AABB& box = b->aabb;
 
-		// XZ ‚Ì‘«— ‚ªæ‚Á‚Ä‚é‚©i“Š‰e‚Åƒ`ƒFƒbƒNj
+		// XZ ã®è¶³è£ãŒä¹—ã£ã¦ã‚‹ã‹ï¼ˆæŠ•å½±ã§ãƒã‚§ãƒƒã‚¯ï¼‰
 		const bool overlapXZ = !(playerAabb.max.x <= box.min.x || playerAabb.min.x >= box.max.x ||
 			playerAabb.max.z <= box.min.z || playerAabb.min.z >= box.max.z);
 		if (!overlapXZ) continue;
 
-		// ‘«Œ³‚ª°‚Ìã–Ê‚©‚ç‚Ç‚ê‚¾‚¯ã‚©
+		// è¶³å…ƒãŒåºŠã®ä¸Šé¢ã‹ã‚‰ã©ã‚Œã ã‘ä¸Šã‹
 		const float dy = playerAabb.min.y - box.max.y;
 
-		// dy‚ª 0..epsi{”÷¬‚ÈŒë·‚Í‹–—ej‚È‚çÚ’nˆµ‚¢
+		// dyãŒ 0..epsï¼ˆï¼‹å¾®å°ãªèª¤å·®ã¯è¨±å®¹ï¼‰ãªã‚‰æ¥åœ°æ‰±ã„
 		if (dy >= -0.002f && dy <= eps)
 		{
 			if (box.max.y > bestY)
@@ -104,18 +104,18 @@ static bool g_isGrounded = false;
 static SKINNED_MODEL* g_playerModel{ nullptr };
 
 
-static constexpr float PLAYER_SCALE = 14.0f;//14.0f‚ÉŒˆ’è
+static constexpr float PLAYER_SCALE = 14.0f;//14.0fã«æ±ºå®š
 static constexpr float PLAYER_DRAW_Y_OFFSET = 0.0f;//1.0f * PLAYER_SCALE;
 
-static constexpr float PLAYER_HALF_WIDTH = 0.25f;  // ¶‰E‚Ì”¼•ª(AABB‚¾‚©‚ç²‚É•½sAOBB‚È‚çƒvƒŒƒCƒ„[‚Ìƒ[ƒJƒ‹À•WŒn)
-static constexpr float PLAYER_HALF_DEPTH = 0.25f;  // ‘OŒã‚Ì”¼•ª
-static constexpr float PLAYER_HEIGHT = 0.9f;  // ‘«Œ³‚©‚ç“ª‚Ü‚Å
+static constexpr float PLAYER_HALF_WIDTH = 0.25f;  // å·¦å³ã®åŠåˆ†(AABBã ã‹ã‚‰è»¸ã«å¹³è¡Œã€OBBãªã‚‰ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ãƒ­ãƒ¼ã‚«ãƒ«åº§æ¨™ç³»)
+static constexpr float PLAYER_HALF_DEPTH = 0.25f;  // å‰å¾Œã®åŠåˆ†
+static constexpr float PLAYER_HEIGHT = 0.9f;  // è¶³å…ƒã‹ã‚‰é ­ã¾ã§
 
 static const PlayerTuning k_defaultTune{
 	18.0f,           // jumpImpulse
 	10.0f,     // gravity
 	-7.0f,           // terminalFall
-	1000.0f / 40.0f, // moveAccel‰Á‘¬“x
+	1000.0f / 40.0f, // moveAccelåŠ é€Ÿåº¦
 	10.0f,           // friction
 	DirectX::XM_2PI * 1.0f // rotSpeed
 };
@@ -150,21 +150,22 @@ static bool  g_visFixJump = false;
 static bool  g_visFixLand = false;
 static bool  g_visFixCrouchForwardJump2 = false;
 
-// ’²®’liƒ[ƒ‹ƒh’PˆÊj: ‘O‚ÉƒYƒŒ‚é‚È‚çuƒ}ƒCƒiƒXv‚ÅŒã‚ë‚Éˆø‚­
+// èª¿æ•´å€¤ï¼ˆãƒ¯ãƒ¼ãƒ«ãƒ‰å˜ä½ï¼‰: å‰ã«ã‚ºãƒ¬ã‚‹ãªã‚‰ã€Œãƒã‚¤ãƒŠã‚¹ã€ã§å¾Œã‚ã«å¼•ã
 static float g_visJumpForwardFix = -3.0f;
 static float g_visLandForwardFix = -1.0f;
 static float g_visCrouchForwardJump2Fix = -0.5f;
 
-// ===== Landing-timed 2nd jump (’…’n2’iƒWƒƒƒ“ƒv) =====
-static bool  s_airFromGroundJump = false;   // ’Êí‚Ì’nãƒWƒƒƒ“ƒvŒãA‹ó’†‚É‚¢‚éŠÔ true
-static float s_doubleJumpWindowT = 0.0f;    // ’…’nŒã‚Ì2’iƒWƒƒƒ“ƒvó•tc‚èŠÔ
-static bool  s_prevJumpHeldInput = false;   // “ü—Í‚ÌƒGƒbƒWŒŸo—p
-static float s_jumpBufferT = 0.0f;          // ’…’nƒ^ƒCƒ~ƒ“ƒO—p‚Ì“ü—Íƒoƒbƒtƒ@
+// ===== Landing-timed 2nd jump (ç€åœ°2æ®µã‚¸ãƒ£ãƒ³ãƒ—) =====
+static bool  s_airFromGroundJump = false;   // é€šå¸¸ã®åœ°ä¸Šã‚¸ãƒ£ãƒ³ãƒ—å¾Œã€ç©ºä¸­ã«ã„ã‚‹é–“ true
+static float s_doubleJumpWindowT = 0.0f;    // ç€åœ°å¾Œã®2æ®µã‚¸ãƒ£ãƒ³ãƒ—å—ä»˜æ®‹ã‚Šæ™‚é–“
+static bool  s_prevJumpHeldInput = false;   // å…¥åŠ›ã®ã‚¨ãƒƒã‚¸æ¤œå‡ºç”¨
+static float s_jumpBufferT = 0.0f;          // ç€åœ°ã‚¿ã‚¤ãƒŸãƒ³ã‚°ç”¨ã®å…¥åŠ›ãƒãƒƒãƒ•ã‚¡
 
-static float g_spinYaw = 0.0f; // Œ©‚½–Ú‚¾‚¯‰ñ“]
+static float g_spinYaw = 0.0f; // è¦‹ãŸç›®ã ã‘å›è»¢
 
 // ===== Crouch forward jump =====
 static bool  g_crouchForwardJumpActive = false;
+static XMFLOAT3 g_crouchForwardJumpDir = { 0.0f, 0.0f, 1.0f };
 
 void Player_SetInputOverride(bool enable, const PlayerInput* input)
 {
@@ -225,8 +226,8 @@ void Player_Update(double elapsedTime)
 	static float s_jumpT = 0.0f;
 
 	// ===== Double jump tuning =====
-	constexpr float DOUBLE_JUMP_HEIGHT_MULT = 1.5f;          // –Ú•WF‚‚³
-	constexpr float DOUBLE_JUMP_SPEED_MULT = 1.224744871f;  // sqrt(1.5)  ‚‚³1.5”{‘Š“–
+	constexpr float DOUBLE_JUMP_HEIGHT_MULT = 1.5f;          // ç›®æ¨™ï¼šé«˜ã•
+	constexpr float DOUBLE_JUMP_SPEED_MULT = 1.224744871f;  // sqrt(1.5) ï¼ é«˜ã•1.5å€ç›¸å½“
 
 	static bool  s_playDoubleJump = false;
 	static float s_doubleJumpT = 0.0f;
@@ -240,12 +241,12 @@ void Player_Update(double elapsedTime)
 	XMVECTOR position = XMLoadFloat3(&g_playerPos);
 	XMVECTOR velocity = XMLoadFloat3(&g_playerVel);
 
-	// Ground probeid‚È‚Á‚Ä‚È‚­‚Ä‚àÚ’n‚ğˆÀ’è‚³‚¹‚éj
+	// Ground probeï¼ˆé‡ãªã£ã¦ãªãã¦ã‚‚æ¥åœ°ã‚’å®‰å®šã•ã›ã‚‹ï¼‰
 	bool  probedGround = false;
 	float groundY = 0.0f;
 	const float velY0 = XMVectorGetY(velocity);
 
-	if (velY0 <= 0.01f) // ã¸’†‚Í ground ˆµ‚¢‚µ‚È‚¢
+	if (velY0 <= 0.01f) // ä¸Šæ˜‡ä¸­ã¯ ground æ‰±ã„ã—ãªã„
 	{
 		constexpr float GROUND_EPS = 0.06f;
 		if (ProbeGroundY(position, GROUND_EPS, &groundY))
@@ -317,8 +318,9 @@ void Player_Update(double elapsedTime)
 	const float CROUCH_FORWARD_JUMP_INPUT_MIN = 0.20f;
 	const float CROUCH_FORWARD_JUMP_FORWARD_DOT = cosf(DirectX::XMConvertToRadians(60.0f));
 	const float CROUCH_FORWARD_JUMP_Y_MULT = 0.9f;
-	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 4.0f;
-	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.30f;
+	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 8.0f;
+	const float CROUCH_FORWARD_JUMP_ACCEL_TIME = 0.5f;
+	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.10f;
 
 	const float rawMoveMagSq = (rawMoveX * rawMoveX) + (rawMoveY * rawMoveY);
 	const bool hasMoveInput = (rawMoveMagSq > (CROUCH_FORWARD_JUMP_INPUT_MIN * CROUCH_FORWARD_JUMP_INPUT_MIN));
@@ -393,9 +395,10 @@ void Player_Update(double elapsedTime)
 			if (crouchForwardJump)
 			{
 				jumpY = ao.jumpSpeedY * CROUCH_FORWARD_JUMP_Y_MULT;
-				const XMVECTOR jumpVelXZ = crouchJumpDir * CROUCH_FORWARD_JUMP_SPEED_XZ;
-				velocity = XMVectorSet(XMVectorGetX(jumpVelXZ), jumpY, XMVectorGetZ(jumpVelXZ), 0.0f);
+				const XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
+				velocity = XMVectorSet(XMVectorGetX(velXZ), jumpY, XMVectorGetZ(velXZ), 0.0f);
 				XMStoreFloat3(&g_playerFront, XMVector3Normalize(crouchJumpDir));
+				XMStoreFloat3(&g_crouchForwardJumpDir, XMVector3Normalize(crouchJumpDir));
 				g_crouchForwardJumpActive = true;
 			}
 			else
@@ -404,16 +407,16 @@ void Player_Update(double elapsedTime)
 				g_crouchForwardJumpActive = false;
 			}
 
-			// 2’iƒWƒƒƒ“ƒv‚ğÁ”ï
+			// 2æ®µã‚¸ãƒ£ãƒ³ãƒ—ã‚’æ¶ˆè²»
 			if (doDouble) s_doubleJumpWindowT = 0.0f;
 
 			if (doDouble) doubleJumpFiredThisFrame = true;
 
 
-			// u’nãƒWƒƒƒ“ƒv—R—ˆ‚Å‹ó’†‚É‚¢‚évƒtƒ‰ƒOi’…’nƒEƒBƒ“ƒhƒEŠJn‚ÌŒ³j
+			// ã€Œåœ°ä¸Šã‚¸ãƒ£ãƒ³ãƒ—ç”±æ¥ã§ç©ºä¸­ã«ã„ã‚‹ã€ãƒ•ãƒ©ã‚°ï¼ˆç€åœ°ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦é–‹å§‹ã®å…ƒï¼‰
 			s_airFromGroundJump = true;
 
-			// Variable jump ‘¤‚à jumpY ‚ğŠî€‚É‚·‚é
+			// Variable jump å´ã‚‚ jumpY ã‚’åŸºæº–ã«ã™ã‚‹
 			if (crouchForwardJump)
 			{
 				g_varJumpActive = false;
@@ -453,29 +456,29 @@ void Player_Update(double elapsedTime)
 				velocity = XMVectorSetY(velocity, g_tune.terminalFall);
 			}
 
-			// ---- Spin air-lift : —‰º’†‚Å‚à•K‚¸•‚‚­id—Í‚ğ‘Å‚¿Á‚· + —‰º‘¬“xƒŠƒZƒbƒgj----
+			// ---- Spin air-lift : è½ä¸‹ä¸­ã§ã‚‚å¿…ãšæµ®ãï¼ˆé‡åŠ›ã‚’æ‰“ã¡æ¶ˆã™ + è½ä¸‹é€Ÿåº¦ãƒªã‚»ãƒƒãƒˆï¼‰----
 			{
 				const bool isSpin = (g_act.id == PlayerActionId::Spin);
 				const bool spinStarted = (isSpin && !s_prevSpin);
 
 				if (isSpin && !prevGround)
 				{
-					// ‡@ ‚±‚ÌƒtƒŒ[ƒ€‚É“ü‚ê‚½d—Í‚ğ‘Å‚¿Á‚·i= —‰º‚É‚©‚©‚Á‚Ä‚é—Í‚ğ0‚É‚·‚éj
+					// â‘  ã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã«å…¥ã‚ŒãŸé‡åŠ›ã‚’æ‰“ã¡æ¶ˆã™ï¼ˆ= è½ä¸‹ã«ã‹ã‹ã£ã¦ã‚‹åŠ›ã‚’0ã«ã™ã‚‹ï¼‰
 					velocity = XMVectorSetY(velocity, XMVectorGetY(velocity) + g_tune.gravity * dt);
 
-					// ‡A ”­“®‚µ‚½uŠÔA—‰º‘¬“x‚ğ0‚É‚·‚éi‚Ç‚ÌˆÊ’u/‘¬“x‚©‚ç‚Å‚à•‚‚­j
+					// â‘¡ ç™ºå‹•ã—ãŸç¬é–“ã€è½ä¸‹é€Ÿåº¦ã‚’0ã«ã™ã‚‹ï¼ˆã©ã®ä½ç½®/é€Ÿåº¦ã‹ã‚‰ã§ã‚‚æµ®ãï¼‰
 					if (spinStarted)
 					{
-						// —‰º’†‚È‚ç~‚ß‚éiã¸’†‚Í‚»‚Ì‚Ü‚Ü‚Å‚àOK‚¾‚ªA“ˆê‚µ‚½‚¯‚ê‚Î 0 ‚É‚µ‚Ä‚à—Ç‚¢j
+						// è½ä¸‹ä¸­ãªã‚‰æ­¢ã‚ã‚‹ï¼ˆä¸Šæ˜‡ä¸­ã¯ãã®ã¾ã¾ã§ã‚‚OKã ãŒã€çµ±ä¸€ã—ãŸã‘ã‚Œã° 0 ã«ã—ã¦ã‚‚è‰¯ã„ï¼‰
 						if (XMVectorGetY(velocity) < 0.0f)
 							velocity = XMVectorSetY(velocity, 0.0f);
 					}
 
-					// ‡B •‚‚«ƒCƒ“ƒpƒ‹ƒX‚ğu‰ÁZv‚Å“ü‚ê‚éiã¸’†‚Å‚à—‰º’†‚Å‚àŒø‚­j
-					const float liftDur = std::max(1.0e-6f, g_actParam.spinAirLiftDuration); // —á: 0.12f
+					// â‘¢ æµ®ãã‚¤ãƒ³ãƒ‘ãƒ«ã‚¹ã‚’ã€ŒåŠ ç®—ã€ã§å…¥ã‚Œã‚‹ï¼ˆä¸Šæ˜‡ä¸­ã§ã‚‚è½ä¸‹ä¸­ã§ã‚‚åŠ¹ãï¼‰
+					const float liftDur = std::max(1.0e-6f, g_actParam.spinAirLiftDuration); // ä¾‹: 0.12f
 					if (g_act.timer <= liftDur)
 					{
-						const float accelY = g_actParam.spinAirLiftImpulseY / liftDur; // ‡Œv‚Å impulseY ‚É‚È‚é
+						const float accelY = g_actParam.spinAirLiftImpulseY / liftDur; // åˆè¨ˆã§ impulseY ã«ãªã‚‹
 						velocity = XMVectorSetY(velocity, XMVectorGetY(velocity) + accelY * dt);
 					}
 				}
@@ -498,9 +501,9 @@ void Player_Update(double elapsedTime)
 
 	if (st && p && st->id == PlayerActionId::Spin)
 	{
-		// 0.5•b‚Å1‰ñ“]i¶‰ñ‚èj
+		// 0.5ç§’ã§1å›è»¢ï¼ˆå·¦å›ã‚Šï¼‰
 		const float angSpeed = XM_2PI / p->spinTime; // rad/s
-		g_spinYaw += -angSpeed * dt; // ¶‰ñ‚èi‹t‚È‚ç•„†‚ğ+‚Éj
+		g_spinYaw += -angSpeed * dt; // å·¦å›ã‚Šï¼ˆé€†ãªã‚‰ç¬¦å·ã‚’+ã«ï¼‰
 	}
 	else
 	{
@@ -546,11 +549,11 @@ void Player_Update(double elapsedTime)
 				float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
 
 				// Start brake: input dir is >=120 deg away from current move dir
-				// cos(120‹) = -0.5
+				// cos(120Â°) = -0.5
 				// Start brake: ground only (avoid weird brake state in air)
 				if (g_act.id != PlayerActionId::Air)
 				{
-					// cos(120‹) = -0.5
+					// cos(120Â°) = -0.5
 					if (g_brakeTimer <= 0.0f && mag > 1.0e-3f && speedXZ > 0.2f)
 					{
 						XMVECTOR velDir = velXZ * (1.0f / speedXZ);
@@ -575,7 +578,7 @@ void Player_Update(double elapsedTime)
 				{
 					if (g_act.id != PlayerActionId::Air)
 					{
-						// ===== ’nãi¡‚Ü‚Å‚Ì‚Ü‚Üj=====
+						// ===== åœ°ä¸Šï¼ˆä»Šã¾ã§ã®ã¾ã¾ï¼‰=====
 						if (g_brakeTimer > 0.0f)
 						{
 							g_brakeTimer -= dt;
@@ -624,7 +627,7 @@ void Player_Update(double elapsedTime)
 								}
 							}
 
-							// ’nã‚ÍŒü‚«‚à‰ñ‚·i¡‚Ü‚Å’Ê‚èj
+							// åœ°ä¸Šã¯å‘ãã‚‚å›ã™ï¼ˆä»Šã¾ã§é€šã‚Šï¼‰
 							float dot = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&g_playerFront), dir));
 							dot = ClampFloat(dot, -1.0f, 1.0f);
 
@@ -656,28 +659,48 @@ void Player_Update(double elapsedTime)
 					}
 					else
 					{
-						// ===== ‹ó’†F‚Ç‚Ì•ûŒü‚Ö‚àˆÚ“®OKi‚½‚¾‚µŒ©‚½–Ú‚ÌŒü‚«‚Í‰ñ‚³‚È‚¢j=====
-						constexpr float AIR_SPEED_MAX = 1.6f;   // ‹ó’†Å‘å‘¬“xiD‚İ‚Åj
-						constexpr float AIR_ACCEL_SCALE = 0.35f;  // ‹ó’†‰Á‘¬i’nã”äj
+						// ===== ç©ºä¸­ï¼šã©ã®æ–¹å‘ã¸ã‚‚ç§»å‹•OKï¼ˆãŸã ã—è¦‹ãŸç›®ã®å‘ãã¯å›ã•ãªã„ï¼‰=====
+						constexpr float AIR_SPEED_MAX = 1.6f;   // ç©ºä¸­æœ€å¤§é€Ÿåº¦ï¼ˆå¥½ã¿ã§ï¼‰
+						constexpr float AIR_ACCEL_SCALE = 0.35f;  // ç©ºä¸­åŠ é€Ÿï¼ˆåœ°ä¸Šæ¯”ï¼‰
 
-						// ‹ó’†‚Í’nãó‘Ô‚ğg‚í‚È‚¢iƒoƒO–h~j
+						// ç©ºä¸­ã¯åœ°ä¸ŠçŠ¶æ…‹ã‚’ä½¿ã‚ãªã„ï¼ˆãƒã‚°é˜²æ­¢ï¼‰
 						g_brakeTimer = 0.0f;
 						g_dash2AccelDist = 0.0f;
 
-						// “ü—Í•ûŒü‚Öu‘¬“xƒxƒNƒgƒ‹‚¾‚¯vŠñ‚¹‚éig_playerFront ‚ÍXV‚µ‚È‚¢j
-						const float desiredSpeed = AIR_SPEED_MAX * mag;
-						const XMVECTOR desiredVelXZ = dir * desiredSpeed;
+						// å…¥åŠ›æ–¹å‘ã¸ã€Œé€Ÿåº¦ãƒ™ã‚¯ãƒˆãƒ«ã ã‘ã€å¯„ã›ã‚‹ï¼ˆg_playerFront ã¯æ›´æ–°ã—ãªã„ï¼‰
+						if (g_crouchForwardJumpActive)
+						{
+							const XMVECTOR jumpDir = XMVector3Normalize(XMLoadFloat3(&g_crouchForwardJumpDir));
+							const XMVECTOR desiredVelXZ = jumpDir * CROUCH_FORWARD_JUMP_SPEED_XZ;
 
-						const XMVECTOR delta = desiredVelXZ - velXZ;
-						const float deltaLen = XMVectorGetX(XMVector3Length(delta));
-						const float maxDelta = (moveAccel * AIR_ACCEL_SCALE * airControlScale) * dt;
+							const XMVECTOR delta = desiredVelXZ - velXZ;
+							const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+							const float accel = CROUCH_FORWARD_JUMP_SPEED_XZ / std::max(1.0e-6f, CROUCH_FORWARD_JUMP_ACCEL_TIME);
+							const float maxDelta = accel * dt;
 
-						if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
-							velXZ += delta * (maxDelta / deltaLen);
+							if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+								velXZ += delta * (maxDelta / deltaLen);
+							else
+								velXZ = desiredVelXZ;
+
+							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
+						}
 						else
-							velXZ = desiredVelXZ;
+						{
+							const float desiredSpeed = AIR_SPEED_MAX * mag;
+							const XMVECTOR desiredVelXZ = dir * desiredSpeed;
 
-						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
+							const XMVECTOR delta = desiredVelXZ - velXZ;
+							const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+							const float maxDelta = (moveAccel * AIR_ACCEL_SCALE * airControlScale) * dt;
+
+							if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+								velXZ += delta * (maxDelta / deltaLen);
+							else
+								velXZ = desiredVelXZ;
+
+							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
+						}
 					}
 				}
 
@@ -685,30 +708,30 @@ void Player_Update(double elapsedTime)
 
 		}
 
-		// –³“ü—ÍŒŸoi‘Ò‹@ƒAƒjƒ—pj
+		// ç„¡å…¥åŠ›æ¤œå‡ºï¼ˆå¾…æ©Ÿã‚¢ãƒ‹ãƒ¡ç”¨ï¼‰
 		{
 			const float m2 = (in.moveX * in.moveX) + (in.moveY * in.moveY);
 			const bool noMoveInput = (m2 <= 1.0e-6f);
 
-			// ‘¬“x‚ªc‚Á‚Ä‚éŠÔ‚Íu‘Ò‹@vˆµ‚¢‚µ‚È‚¢iŠŠ‚Á‚Ä‚éÅ’†‚É idleTotalT ‚ği‚ß‚È‚¢j
+			// é€Ÿåº¦ãŒæ®‹ã£ã¦ã‚‹é–“ã¯ã€Œå¾…æ©Ÿã€æ‰±ã„ã—ãªã„ï¼ˆæ»‘ã£ã¦ã‚‹æœ€ä¸­ã« idleTotalT ã‚’é€²ã‚ãªã„ï¼‰
 			const XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
 			const float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
 
-			// u–{“–‚É‘Ò‹@v”»’èF–³“ü—Í + ’nã + ‚Ù‚Ú’â~ +iƒuƒŒ[ƒL/S‘©/‹ó’†‚È‚ÇœŠOj
+			// ã€Œæœ¬å½“ã«å¾…æ©Ÿã€åˆ¤å®šï¼šç„¡å…¥åŠ› + åœ°ä¸Š + ã»ã¼åœæ­¢ +ï¼ˆãƒ–ãƒ¬ãƒ¼ã‚­/æ‹˜æŸ/ç©ºä¸­ãªã©é™¤å¤–ï¼‰
 			const bool idleNow =
 				noMoveInput &&
-				prevGround &&                 // ‚±‚±‚ÍŒ»ó‚ÌƒƒWƒbƒN‚É‡‚í‚¹‚Ä prevGround ‚ğg‚¤
-				(speedXZ <= 0.05f) &&         // š’â~”»’èi•K—v‚È‚ç 0.03f`0.10f ‚Å’²®j
+				prevGround &&                 // ã“ã“ã¯ç¾çŠ¶ã®ãƒ­ã‚¸ãƒƒã‚¯ã«åˆã‚ã›ã¦ prevGround ã‚’ä½¿ã†
+				(speedXZ <= 0.05f) &&         // â˜…åœæ­¢åˆ¤å®šï¼ˆå¿…è¦ãªã‚‰ 0.03fï½0.10f ã§èª¿æ•´ï¼‰
 				(g_brakeTimer <= 0.0f) &&
 				(ao.id == PlayerActionId::Ground);
 
-			// ‘Ò‹@‚É“ü‚Á‚Ä‚©‚ç‚Ì—İŒvŠÔ
+			// å¾…æ©Ÿã«å…¥ã£ã¦ã‹ã‚‰ã®ç´¯è¨ˆæ™‚é–“
 			static float idleTotalT = 0.0f;
 			static bool  wasIdle = false;
 
 			if (idleNow)
 			{
-				// –³“ü—Í(=‘Ò‹@)‚É‚È‚Á‚½uŠÔ‚©‚ç—İŒvŠJn
+				// ç„¡å…¥åŠ›(=å¾…æ©Ÿ)ã«ãªã£ãŸç¬é–“ã‹ã‚‰ç´¯è¨ˆé–‹å§‹
 				if (!wasIdle) idleTotalT = 0.0f;
 				wasIdle = true;
 
@@ -747,8 +770,8 @@ void Player_Update(double elapsedTime)
 		const bool hasInput = (inMagSq > 1.0e-6f);
 
 		float fric = g_tune.friction;
-		if (hasInput) fric *= 0.15f;      // “ü—Í’†‚ÍŠŠ‚è‚â‚·‚­i‰Á‘¬‚ªŸ‚Âj
-		if (g_brakeTimer > 0.0f) fric = 0.0f; // ƒuƒŒ[ƒL’†‚Íã‚ÅŒ¸Š‚³‚¹‚Ä‚é
+		if (hasInput) fric *= 0.15f;      // å…¥åŠ›ä¸­ã¯æ»‘ã‚Šã‚„ã™ãï¼ˆåŠ é€ŸãŒå‹ã¤ï¼‰
+		if (g_brakeTimer > 0.0f) fric = 0.0f; // ãƒ–ãƒ¬ãƒ¼ã‚­ä¸­ã¯ä¸Šã§æ¸›è¡°ã•ã›ã¦ã‚‹
 
 		XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
 		velXZ += (-velXZ) * (fric * dt);
@@ -831,7 +854,7 @@ void Player_Update(double elapsedTime)
 	}
 
 
-	// ===== AABB vs AABB : Player ‚ğ Cube ‚©‚ç‰Ÿ‚µ–ß‚· =====
+	// ===== AABB vs AABB : Player ã‚’ Cube ã‹ã‚‰æŠ¼ã—æˆ»ã™ =====
 	{
 		for (int solve = 0; solve < 4; ++solve)
 		{
@@ -895,7 +918,7 @@ void Player_Update(double elapsedTime)
 		}
 	}
 
-	// overlap‚ª–³‚¢u‚Ò‚Á‚½‚èÚ’nv‚Å‚à grounded ‚ğˆÛ
+	// overlapãŒç„¡ã„ã€Œã´ã£ãŸã‚Šæ¥åœ°ã€ã§ã‚‚ grounded ã‚’ç¶­æŒ
 	if (!g_isGrounded && XMVectorGetY(velocity) <= 0.01f)
 	{
 		float groundY = 0.0f;
@@ -952,9 +975,9 @@ void Player_Update(double elapsedTime)
 		g_crouchForwardJumpActive = false;
 	}
 
-	// ===== Animation (ÅIŒˆ’è‚Í‚±‚±‚Å‚â‚é) =====
+	// ===== Animation (æœ€çµ‚æ±ºå®šã¯ã“ã“ã§ã‚„ã‚‹) =====
 	{
-		// ===== Spin : Tƒ|[ƒYŒÅ’è + Œ©‚½–Ú‰ñ“] =====
+		// ===== Spin : Tãƒãƒ¼ã‚ºå›ºå®š + è¦‹ãŸç›®å›è»¢ =====
 		static float s_spinVisT = 0.0f;
 
 		static float s_crouchT = 0.0f;
@@ -968,22 +991,22 @@ void Player_Update(double elapsedTime)
 		{
 			s_prevCrouch = false;
 			s_crouchT = 0.0f;
-			// 0.5•b‚Å1‰ñ“]i¶‰ñ‚èj
+			// 0.5ç§’ã§1å›è»¢ï¼ˆå·¦å›ã‚Šï¼‰
 			constexpr float SPIN_TIME = 0.5f;
 			const float angSpeed = DirectX::XM_2PI / SPIN_TIME; // rad/s
 
 			s_spinVisT += dt;
-			g_spinYaw += -angSpeed * dt; // ¶‰ñ‚èi‹t‚È‚ç + ‚Éj
+			g_spinYaw += -angSpeed * dt; // å·¦å›ã‚Šï¼ˆé€†ãªã‚‰ + ã«ï¼‰
 
-			// Tƒ|[ƒYi“Ç‚İ‚İƒ|[ƒYj‚É–ß‚·F‚±‚ÌƒtƒŒ[ƒ€‚ÌÅIo—Í‚É‚·‚é
+			// Tãƒãƒ¼ã‚ºï¼ˆèª­ã¿è¾¼ã¿æ™‚ãƒãƒ¼ã‚ºï¼‰ã«æˆ»ã™ï¼šã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã®æœ€çµ‚å‡ºåŠ›ã«ã™ã‚‹
 			SkinnedModel_ResetPose(g_playerModel);
 
-			// ƒXƒsƒ“’†‚ÍƒWƒƒƒ“ƒv/’…’n‚ÌŒ©‚½–Ú•â³‚ÍØ‚éiƒYƒŒ–h~j
+			// ã‚¹ãƒ”ãƒ³ä¸­ã¯ã‚¸ãƒ£ãƒ³ãƒ—/ç€åœ°ã®è¦‹ãŸç›®è£œæ­£ã¯åˆ‡ã‚‹ï¼ˆã‚ºãƒ¬é˜²æ­¢ï¼‰
 			g_visFixLand = false;
 			g_visFixJump = false;
 			g_visFixCrouchForwardJump2 = false;
 
-			// ‚±‚±‚ÅI‚í‚èF‰º‚ÌƒWƒƒƒ“ƒv/’…’nƒAƒjƒ‚És‚©‚¹‚È‚¢
+			// ã“ã“ã§çµ‚ã‚ã‚Šï¼šä¸‹ã®ã‚¸ãƒ£ãƒ³ãƒ—/ç€åœ°ã‚¢ãƒ‹ãƒ¡ã«è¡Œã‹ã›ãªã„
 			s_prevGrounded = g_isGrounded;
 		}
 		else if (g_act.id == PlayerActionId::Crouch)
@@ -1009,7 +1032,7 @@ void Player_Update(double elapsedTime)
 		{
 			s_prevCrouch = false;
 			s_crouchT = 0.0f;
-			// ƒXƒsƒ“‚¶‚á‚È‚¢‚Í‰ñ“]ƒŠƒZƒbƒg
+			// ã‚¹ãƒ”ãƒ³ã˜ã‚ƒãªã„æ™‚ã¯å›è»¢ãƒªã‚»ãƒƒãƒˆ
 			s_spinVisT = 0.0f;
 			g_spinYaw = 0.0f;
 			if (crouchForwardJumpTrg)
@@ -1024,7 +1047,7 @@ void Player_Update(double elapsedTime)
 				s_crouchForwardJumpT = 0.0f;
 				s_holdCrouchForwardJumpPose = false;
 			}
-			// Air‚©‚çGround ‚É‚È‚Á‚½uŠÔ‚ğu’…’nv‚Æ‚İ‚È‚·
+			// Airã‹ã‚‰Ground ã«ãªã£ãŸç¬é–“ã‚’ã€Œç€åœ°ã€ã¨ã¿ãªã™
 			const bool landed = (!s_prevGrounded && g_isGrounded);
 			if (landed)
 			{
@@ -1032,27 +1055,27 @@ void Player_Update(double elapsedTime)
 				s_landT = 0.0f;
 			}
 
-			// ƒWƒƒƒ“ƒvŠJni‚±‚ÌƒtƒŒ[ƒ€‚ÅƒWƒƒƒ“ƒv—v‹‚ª’Ê‚Á‚½uŠÔj
+			// ã‚¸ãƒ£ãƒ³ãƒ—é–‹å§‹ï¼ˆã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã§ã‚¸ãƒ£ãƒ³ãƒ—è¦æ±‚ãŒé€šã£ãŸç¬é–“ï¼‰
 			if (ao.requestJump && prevGround && !crouchForwardJumpTrg)
 			{
 				s_playJump = true;
 				s_jumpT = 0.0f;
 			}
 
-			// 2’iƒWƒƒƒ“ƒvŠJni‚±‚ÌƒtƒŒ[ƒ€‚Å2’iƒWƒƒƒ“ƒv‚ª”­“®‚µ‚½uŠÔj
+			// 2æ®µã‚¸ãƒ£ãƒ³ãƒ—é–‹å§‹ï¼ˆã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã§2æ®µã‚¸ãƒ£ãƒ³ãƒ—ãŒç™ºå‹•ã—ãŸç¬é–“ï¼‰
 			if (doubleJumpFiredThisFrame)
 			{
 				s_playDoubleJump = true;
 				s_doubleJumpT = 0.0f;
 
-				// 2’iƒWƒƒƒ“ƒv‚ğ’ÊíƒWƒƒƒ“ƒv‚æ‚è—Dæ‚µ‚½‚¢‚Ì‚Å~‚ß‚é
+				// 2æ®µã‚¸ãƒ£ãƒ³ãƒ—ã‚’é€šå¸¸ã‚¸ãƒ£ãƒ³ãƒ—ã‚ˆã‚Šå„ªå…ˆã—ãŸã„ã®ã§æ­¢ã‚ã‚‹
 				s_playJump = false;
 			}
 
 
-			// ‹ó’†‚É‚¢‚éŠÔ‚ÍƒWƒƒƒ“ƒvƒAƒjƒˆµ‚¢iÅŒã’â~j
+			// ç©ºä¸­ã«ã„ã‚‹é–“ã¯ã‚¸ãƒ£ãƒ³ãƒ—ã‚¢ãƒ‹ãƒ¡æ‰±ã„ï¼ˆæœ€å¾Œåœæ­¢ï¼‰
 			if (!g_isGrounded) s_playJump = true;
-			// —Dæ“xF’…’n > ƒWƒƒƒ“ƒv > ’nã’Êí
+			// å„ªå…ˆåº¦ï¼šç€åœ° > ã‚¸ãƒ£ãƒ³ãƒ— > åœ°ä¸Šé€šå¸¸
 			constexpr int ANIM_JUMP = 22;
 			constexpr float JUMP_CLIP_START = 0.28f;
 			constexpr float JUMP_CLIP_END = 0.44f;
@@ -1067,7 +1090,7 @@ void Player_Update(double elapsedTime)
 			constexpr float CROUCH_FJUMP_CLIP2_START = 0.00f;
 			constexpr float CROUCH_FJUMP_CLIP2_END = 0.00f;
 
-			//‚±‚ÌƒtƒŒ[ƒ€‚Å“K—p‚µ‚½•û‚ğŠo‚¦‚éi•`‰æƒIƒtƒZƒbƒg—pj
+			//ã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã§é©ç”¨ã—ãŸæ–¹ã‚’è¦šãˆã‚‹ï¼ˆæç”»ã‚ªãƒ•ã‚»ãƒƒãƒˆç”¨ï¼‰
 			bool playCrouchForwardJumpThisFrame = false;
 			bool playLandThisFrame = false;
 			bool playJumpThisFrame = false;
@@ -1107,14 +1130,14 @@ void Player_Update(double elapsedTime)
 						s_crouchForwardJumpT = 0.0f;
 				}
 
-				// ’…’n’†‚ÉƒWƒƒƒ“ƒv‚ª¬‚´‚ç‚È‚¢‚æ‚¤‚É•ÛŒ¯
+				// ç€åœ°ä¸­ã«ã‚¸ãƒ£ãƒ³ãƒ—ãŒæ··ã–ã‚‰ãªã„ã‚ˆã†ã«ä¿é™º
 				s_playLand = false;
 				s_playJump = false;
 				s_playDoubleJump = false;
 			}
 			else
 			{
-				// ’…’n‚µ‚Ä‚Ä’…’nƒAƒjƒ‚Å‚à‚È‚¢‚È‚çƒWƒƒƒ“ƒv‚ÍÁ‚·
+				// ç€åœ°ã—ã¦ã¦ç€åœ°ã‚¢ãƒ‹ãƒ¡ã§ã‚‚ãªã„ãªã‚‰ã‚¸ãƒ£ãƒ³ãƒ—ã¯æ¶ˆã™
 				if (s_playLand)
 				{
 					playLandThisFrame = true;
@@ -1143,7 +1166,7 @@ void Player_Update(double elapsedTime)
 			}
 
 
-			//ƒIƒtƒZƒbƒg”»’è‚Íu‚±‚ÌƒtƒŒ[ƒ€‚É‰½‚ğ•`‚¢‚½‚©v‚ÅŒˆ‚ß‚é
+			//ã‚ªãƒ•ã‚»ãƒƒãƒˆåˆ¤å®šã¯ã€Œã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã«ä½•ã‚’æã„ãŸã‹ã€ã§æ±ºã‚ã‚‹
 			g_visFixLand = playLandThisFrame;
 			g_visFixJump = playJumpThisFrame || playCrouchForwardJumpThisFrame;
 			g_visFixCrouchForwardJump2 = playCrouchForwardJumpThisFrame && s_holdCrouchForwardJumpPose;
@@ -1180,7 +1203,7 @@ void Player_Draw()
 	if (fix != 0.0f)
 	{
 		XMVECTOR front = XMVector3Normalize(XMLoadFloat3(&g_playerFront));
-		pos += front * fix; // ‘O•ûŒü‚ÖŒÅ’è‹——£‚¾‚¯‚¸‚ç‚·
+		pos += front * fix; // å‰æ–¹å‘ã¸å›ºå®šè·é›¢ã ã‘ãšã‚‰ã™
 	}
 
 	XMMATRIX t = XMMatrixTranslation(
