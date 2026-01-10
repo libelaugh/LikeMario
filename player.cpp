@@ -161,6 +161,8 @@ static float s_jumpBufferT = 0.0f;          // 着地タイミング用の入力バッファ
 
 static float g_spinYaw = 0.0f; // 見た目だけ回転
 
+// ===== Crouch forward jump =====
+static bool  g_crouchForwardJumpActive = false;
 
 void Player_SetInputOverride(bool enable, const PlayerInput* input)
 {
@@ -276,6 +278,10 @@ void Player_Update(double elapsedTime)
 		// in.dash / in.spin / in.crouch : map if you want
 	}
 
+	const PlayerActionId prevActionId = g_act.id;
+	const float rawMoveX = in.moveX;
+	const float rawMoveY = in.moveY;
+
 	// ===== Landing-timed 2nd jump (input buffer & window timer) =====
 	const bool jumpTrgInput = (in.jump && !s_prevJumpHeldInput);
 	s_prevJumpHeldInput = in.jump;
@@ -306,6 +312,45 @@ void Player_Update(double elapsedTime)
 	PlayerActionOutput ao{};
 	PlayerAction_Update(g_act, g_actParam, ai, sen, dt, ao);
 
+	const float CROUCH_FORWARD_JUMP_INPUT_MIN = 0.20f;
+	const float CROUCH_FORWARD_JUMP_FORWARD_DOT = cosf(DirectX::XMConvertToRadians(60.0f));
+	const float CROUCH_FORWARD_JUMP_Y_MULT = 0.75f;
+	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 4.5f;
+	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.30f;
+
+	const float rawMoveMagSq = (rawMoveX * rawMoveX) + (rawMoveY * rawMoveY);
+	const bool hasMoveInput = (rawMoveMagSq > (CROUCH_FORWARD_JUMP_INPUT_MIN * CROUCH_FORWARD_JUMP_INPUT_MIN));
+	XMVECTOR crouchJumpDir = XMVectorZero();
+	bool hasCrouchJumpDir = false;
+	float crouchForwardDot = -1.0f;
+	if (hasMoveInput)
+	{
+		XMVECTOR camFront = XMLoadFloat3(&PlayerCamera_GetFront());
+		camFront = XMVectorSetY(camFront, 0.0f);
+		if (XMVectorGetX(XMVector3LengthSq(camFront)) < 1.0e-6f)
+			camFront = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+		camFront = XMVector3Normalize(camFront);
+
+		const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		const XMVECTOR camRight = XMVector3Normalize(XMVector3Cross(up, camFront));
+
+		XMVECTOR dir = camRight * rawMoveX + camFront * rawMoveY;
+		const float dirLenSq = XMVectorGetX(XMVector3LengthSq(dir));
+		if (dirLenSq > 1.0e-6f)
+		{
+			dir = XMVector3Normalize(dir);
+			hasCrouchJumpDir = true;
+			crouchJumpDir = dir;
+			XMVECTOR front = XMVector3Normalize(XMLoadFloat3(&g_playerFront));
+			crouchForwardDot = XMVectorGetX(XMVector3Dot(front, dir));
+		}
+	}
+
+	const bool crouchForwardJumpTrg =
+		(prevActionId == PlayerActionId::Crouch) && prevGround && jumpTrgInput && hasCrouchJumpDir &&
+		(crouchForwardDot >= CROUCH_FORWARD_JUMP_FORWARD_DOT);
+
+
 	const bool isCrouch = (ao.id == PlayerActionId::Crouch);
 	if (isCrouch)
 	{
@@ -321,6 +366,7 @@ void Player_Update(double elapsedTime)
 	
 	// Movement scale (crouch / spin etc.)
 	const float moveAccel = g_tune.moveAccel * ao.moveSpeedScale;
+	const float airControlScale = g_crouchForwardJumpActive ? CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE : 1.0f;
 
 	// This frame's grounded will be determined by collision resolution.
 	g_isGrounded = false;
@@ -336,11 +382,25 @@ void Player_Update(double elapsedTime)
 		// Jump request (set Y speed)
 		if (ao.requestJump && prevGround)
 		{
-			const bool doDouble = (s_doubleJumpWindowT > 0.0f);
-			const float jumpY = doDouble ? (ao.jumpSpeedY * DOUBLE_JUMP_SPEED_MULT) : ao.jumpSpeedY;
+			const bool crouchForwardJump = crouchForwardJumpTrg;
+			const bool doDouble = (s_doubleJumpWindowT > 0.0f) && !crouchForwardJump;
+
+			float jumpY = doDouble ? (ao.jumpSpeedY * DOUBLE_JUMP_SPEED_MULT) : ao.jumpSpeedY;
 
 
-			velocity = XMVectorSetY(velocity, jumpY);
+			if (crouchForwardJump)
+			{
+				jumpY = ao.jumpSpeedY * CROUCH_FORWARD_JUMP_Y_MULT;
+				const XMVECTOR jumpVelXZ = crouchJumpDir * CROUCH_FORWARD_JUMP_SPEED_XZ;
+				velocity = XMVectorSet(XMVectorGetX(jumpVelXZ), jumpY, XMVectorGetZ(jumpVelXZ), 0.0f);
+				XMStoreFloat3(&g_playerFront, XMVector3Normalize(crouchJumpDir));
+				g_crouchForwardJumpActive = true;
+			}
+			else
+			{
+				velocity = XMVectorSetY(velocity, jumpY);
+				g_crouchForwardJumpActive = false;
+			}
 
 			// 2段ジャンプを消費
 			if (doDouble) s_doubleJumpWindowT = 0.0f;
@@ -352,11 +412,20 @@ void Player_Update(double elapsedTime)
 			s_airFromGroundJump = true;
 
 			// Variable jump 側も jumpY を基準にする
-			// Variable jump start (normal jump too)
-			g_varJumpActive = true;
-			g_varJumpHoldT = 0.0f;
-			g_varJumpStartSpeedY = jumpY;
-			g_varJumpCutApplied = false;
+			if (crouchForwardJump)
+			{
+				g_varJumpActive = false;
+				g_varJumpHoldT = 0.0f;
+				g_varJumpStartSpeedY = 0.0f;
+				g_varJumpCutApplied = true;
+			}
+			else
+			{
+				g_varJumpActive = true;
+				g_varJumpHoldT = 0.0f;
+				g_varJumpStartSpeedY = jumpY;
+				g_varJumpCutApplied = false;
+			}
 
 
 		}
@@ -599,7 +668,7 @@ void Player_Update(double elapsedTime)
 
 						const XMVECTOR delta = desiredVelXZ - velXZ;
 						const float deltaLen = XMVectorGetX(XMVector3Length(delta));
-						const float maxDelta = (moveAccel * AIR_ACCEL_SCALE) * dt;
+						const float maxDelta = (moveAccel * AIR_ACCEL_SCALE * airControlScale) * dt;
 
 						if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
 							velXZ += delta * (maxDelta / deltaLen);
@@ -878,6 +947,7 @@ void Player_Update(double elapsedTime)
 		g_varJumpHoldT = 0.0f;
 		g_varJumpStartSpeedY = 0.0f;
 		g_varJumpCutApplied = false;
+		g_crouchForwardJumpActive = false;
 	}
 
 	// ===== Animation (最終決定はここでやる) =====
@@ -887,6 +957,10 @@ void Player_Update(double elapsedTime)
 
 		static float s_crouchT = 0.0f;
 		static bool s_prevCrouch = false;
+
+		static float s_crouchForwardJumpT = 0.0f;
+		static bool s_playCrouchForwardJump = false;
+		static bool s_holdCrouchForwardJumpPose = false;
 
 		if (g_act.id == PlayerActionId::Spin)
 		{
@@ -934,6 +1008,18 @@ void Player_Update(double elapsedTime)
 			// スピンじゃない時は回転リセット
 			s_spinVisT = 0.0f;
 			g_spinYaw = 0.0f;
+			if (crouchForwardJumpTrg)
+			{
+				s_playCrouchForwardJump = true;
+				s_crouchForwardJumpT = 0.0f;
+				s_holdCrouchForwardJumpPose = false;
+			}
+			if (g_isGrounded)
+			{
+				s_playCrouchForwardJump = false;
+				s_crouchForwardJumpT = 0.0f;
+				s_holdCrouchForwardJumpPose = false;
+			}
 			// AirからGround になった瞬間を「着地」とみなす
 			const bool landed = (!s_prevGrounded && g_isGrounded);
 			if (landed)
@@ -943,7 +1029,7 @@ void Player_Update(double elapsedTime)
 			}
 
 			// ジャンプ開始（このフレームでジャンプ要求が通った瞬間）
-			if (ao.requestJump && prevGround)
+			if (ao.requestJump && prevGround && !crouchForwardJumpTrg)
 			{
 				s_playJump = true;
 				s_jumpT = 0.0f;
@@ -972,43 +1058,90 @@ void Player_Update(double elapsedTime)
 			constexpr float LAND_CLIP_END = 0.45f;
 			constexpr float LAND_SHOW_TIME = 0.45f;
 
+			constexpr float CROUCH_FJUMP_CLIP1_START = 0.40f;
+			constexpr float CROUCH_FJUMP_CLIP1_END = 0.50f;
+			constexpr float CROUCH_FJUMP_CLIP2_START = 0.00f;
+			constexpr float CROUCH_FJUMP_CLIP2_END = 0.00f;
+
 			//このフレームで適用した方を覚える（描画オフセット用）
+			bool playCrouchForwardJumpThisFrame = false;
 			bool playLandThisFrame = false;
 			bool playJumpThisFrame = false;
 
-			if (s_playLand)
+
+
+			if (s_playCrouchForwardJump && g_crouchForwardJumpActive && !g_isGrounded)
 			{
-				playLandThisFrame = true;
+				playCrouchForwardJumpThisFrame = true;
+
+				const float clip1Len = (CROUCH_FJUMP_CLIP1_END - CROUCH_FJUMP_CLIP1_START);
+				const float clip2Len = (CROUCH_FJUMP_CLIP2_END - CROUCH_FJUMP_CLIP2_START);
+
+				if (!s_holdCrouchForwardJumpPose)
+				{
+					s_crouchForwardJumpT += dt;
+					SkinnedModel_UpdateClip(g_playerModel, s_crouchForwardJumpT, 7,
+						CROUCH_FJUMP_CLIP1_START, CROUCH_FJUMP_CLIP1_END, true);
 
 				s_landT += dt;
 				//SkinnedModel_UpdateAtTime(g_playerModel, s_landT, ANIM_LAND);
 				SkinnedModel_UpdateClip(g_playerModel, s_landT, ANIM_LAND, LAND_CLIP_START, LAND_CLIP_END, true);
 
-				// 終了判定はしてOK（ただしオフセットは playLandThisFrame で維持）
-				if (s_landT >= LAND_SHOW_TIME) s_playLand = false;
+				if (clip1Len > 0.0f && s_crouchForwardJumpT >= clip1Len)
+				{
+					s_holdCrouchForwardJumpPose = true;
+					s_crouchForwardJumpT = 0.0f;
+				}
+				}
+
+				if (s_holdCrouchForwardJumpPose)
+				{
+					s_crouchForwardJumpT += dt;
+					SkinnedModel_UpdateClip(g_playerModel, s_crouchForwardJumpT, 4,
+						CROUCH_FJUMP_CLIP2_START, CROUCH_FJUMP_CLIP2_END, true);
+					if (clip2Len <= 0.0f)
+						s_crouchForwardJumpT = 0.0f;
+				}
 
 				// 着地中にジャンプが混ざらないように保険
+				s_playLand = false;
 				s_playJump = false;
+				s_playDoubleJump = false;
 			}
 			else
 			{
 				// 着地してて着地アニメでもないならジャンプは消す
-				if (g_isGrounded) s_playJump = false;
-
-				if (s_playJump)
+				if (s_playLand)
 				{
-					playJumpThisFrame = true;
+					playLandThisFrame = true;
 
-					s_jumpT += dt;
-					SkinnedModel_UpdateClip(g_playerModel, s_jumpT, ANIM_JUMP,
-						JUMP_CLIP_START, JUMP_CLIP_END, true);
+					s_landT += dt;
+					//SkinnedModel_UpdateAtTime(g_playerModel, s_landT, ANIM_LAND);
+					SkinnedModel_UpdateClip(g_playerModel, s_landT, ANIM_LAND, LAND_CLIP_START, LAND_CLIP_END, true);
+
+					if (s_landT >= LAND_SHOW_TIME) s_playLand = false;
+
+					s_playJump = false;
+				}
+				else
+				{
+					if (g_isGrounded) s_playJump = false;
+
+					if (s_playJump)
+					{
+						playJumpThisFrame = true;
+
+						s_jumpT += dt;
+						SkinnedModel_UpdateClip(g_playerModel, s_jumpT, ANIM_JUMP,
+							JUMP_CLIP_START, JUMP_CLIP_END, true);
+					}
 				}
 			}
 
 
 			//オフセット判定は「このフレームに何を描いたか」で決める
 			g_visFixLand = playLandThisFrame;
-			g_visFixJump = playJumpThisFrame;
+			g_visFixJump = playJumpThisFrame || playCrouchForwardJumpThisFrame;
 		}
 
 		s_prevGrounded = g_isGrounded;
