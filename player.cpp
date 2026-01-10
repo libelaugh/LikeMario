@@ -167,6 +167,7 @@ static float g_spinYaw = 0.0f; // 見た目だけ回転
 static bool  g_crouchForwardJumpActive = false;
 static XMFLOAT3 g_crouchForwardJumpDir = { 0.0f, 0.0f, 1.0f };
 
+
 void Player_SetInputOverride(bool enable, const PlayerInput* input)
 {
 	g_inputOverride = enable;
@@ -318,9 +319,11 @@ void Player_Update(double elapsedTime)
 	const float CROUCH_FORWARD_JUMP_INPUT_MIN = 0.20f;
 	const float CROUCH_FORWARD_JUMP_FORWARD_DOT = cosf(DirectX::XMConvertToRadians(60.0f));
 	const float CROUCH_FORWARD_JUMP_Y_MULT = 0.9f;
-	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 8.0f;
+	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 7.0f;
 	const float CROUCH_FORWARD_JUMP_ACCEL_TIME = 0.5f;
-	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.10f;
+	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.04f;
+	const float CROUCH_FORWARD_JUMP_INPUT_SPEED = 1.0f;
+
 
 	const float rawMoveMagSq = (rawMoveX * rawMoveX) + (rawMoveY * rawMoveY);
 	const bool hasMoveInput = (rawMoveMagSq > (CROUCH_FORWARD_JUMP_INPUT_MIN * CROUCH_FORWARD_JUMP_INPUT_MIN));
@@ -367,7 +370,7 @@ void Player_Update(double elapsedTime)
 		g_brakeTimer = 0.0f;
 		g_dash2AccelDist = 0.0f;
 	}
-	
+
 	// Movement scale (crouch / spin etc.)
 	const float moveAccel = g_tune.moveAccel * ao.moveSpeedScale;
 	const float airControlScale = g_crouchForwardJumpActive ? CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE : 1.0f;
@@ -526,186 +529,210 @@ void Player_Update(double elapsedTime)
 
 		XMVECTOR dir = camRight * in.moveX + camFront * in.moveY;
 		const float dirLenSq = XMVectorGetX(XMVector3LengthSq(dir));
+		const bool hasMoveDir = (dirLenSq > 1.0e-6f);
 
-		if (dirLenSq > 1.0e-6f)
+		if (hasMoveDir)
 		{
-			if (dirLenSq > 1.0e-6f)
+			dir = XMVector3Normalize(dir);
+
+			// ---- Mario move spec (tweak here) ----
+			constexpr float WALK_MAX = 1.0f;           // 0-50%
+			constexpr float DASH1_MAX = 2.0f;          // 50-75%
+			constexpr float DASH2_MAX = 3.0f;          // 75-100%
+			constexpr float BRAKE_TIME = 0.30f;        // brake duration
+			constexpr float BRAKE_FRICTION = 25.0f;    // how quickly you stop while braking
+			constexpr float DASH2_STAGE1_DIST = 1.0f;  // 1 block
+
+			// Analog magnitude (0..1)
+			const float magSq = (in.moveX * in.moveX) + (in.moveY * in.moveY);
+			const float mag = (magSq >= 1.0f) ? 1.0f : (magSq > 0.0f ? sqrtf(magSq) : 0.0f);
+
+			XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
+			float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
+
+			// Start brake: input dir is >=120 deg away from current move dir
+			// cos(120°) = -0.5
+			// Start brake: ground only (avoid weird brake state in air)
+			if (g_act.id != PlayerActionId::Air)
 			{
-				dir = XMVector3Normalize(dir);
-
-				// ---- Mario move spec (tweak here) ----
-				constexpr float WALK_MAX = 1.0f;           // 0-50%
-				constexpr float DASH1_MAX = 2.0f;          // 50-75%
-				constexpr float DASH2_MAX = 3.0f;          // 75-100%
-				constexpr float BRAKE_TIME = 0.30f;        // brake duration
-				constexpr float BRAKE_FRICTION = 25.0f;    // how quickly you stop while braking
-				constexpr float DASH2_STAGE1_DIST = 1.0f;  // 1 block
-
-				// Analog magnitude (0..1)
-				const float magSq = (in.moveX * in.moveX) + (in.moveY * in.moveY);
-				const float mag = (magSq >= 1.0f) ? 1.0f : (magSq > 0.0f ? sqrtf(magSq) : 0.0f);
-
-				XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
-				float speedXZ = XMVectorGetX(XMVector3Length(velXZ));
-
-				// Start brake: input dir is >=120 deg away from current move dir
 				// cos(120°) = -0.5
-				// Start brake: ground only (avoid weird brake state in air)
+				if (g_brakeTimer <= 0.0f && mag > 1.0e-3f && speedXZ > 0.2f)
+				{
+					XMVECTOR velDir = velXZ * (1.0f / speedXZ);
+					float vdot = XMVectorGetX(XMVector3Dot(velDir, dir));
+					if (vdot <= -0.5f)
+					{
+						g_brakeTimer = BRAKE_TIME;
+						g_dash2AccelDist = 0.0f;
+					}
+				}
+			}
+			else
+			{
+				// air: never brake
+				g_brakeTimer = 0.0f;
+			}
+
+
+
+
+			if (!s_playLand)
+			{
 				if (g_act.id != PlayerActionId::Air)
 				{
-					// cos(120°) = -0.5
-					if (g_brakeTimer <= 0.0f && mag > 1.0e-3f && speedXZ > 0.2f)
+					// ===== 地上（今までのまま）=====
+					if (g_brakeTimer > 0.0f)
 					{
-						XMVECTOR velDir = velXZ * (1.0f / speedXZ);
-						float vdot = XMVectorGetX(XMVector3Dot(velDir, dir));
-						if (vdot <= -0.5f)
+						g_brakeTimer -= dt;
+
+						static float brakeT = 0.0f;
+						brakeT += dt;
+						SkinnedModel_UpdateClip(g_playerModel, brakeT, 8, 1.40f, 1.54f, true);
+
+						velXZ += (-velXZ) * (BRAKE_FRICTION * dt);
+
+						if (g_brakeTimer <= 0.0f)
 						{
-							g_brakeTimer = BRAKE_TIME;
-							g_dash2AccelDist = 0.0f;
+							velXZ = XMVectorZero();
+							speedXZ = 0.0f;
 						}
+
+						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
+					}
+					else
+					{
+						static float t = 0.0f;
+						t += dt;
+						SkinnedModel_Update(g_playerModel, t, 21);
+
+						if (mag >= 0.75f && speedXZ > 0.05f) g_dash2AccelDist += speedXZ * dt;
+						else g_dash2AccelDist = 0.0f;
+
+						float desiredSpeed = 0.0f;
+
+						if (mag < 0.5f)
+						{
+							desiredSpeed = WALK_MAX * (mag / 0.5f);
+						}
+						else if (mag < 0.75f)
+						{
+							const float t = (mag - 0.5f) / 0.25f;
+							desiredSpeed = WALK_MAX + (DASH1_MAX - WALK_MAX) * t;
+						}
+						else
+						{
+							if (g_dash2AccelDist < DASH2_STAGE1_DIST) desiredSpeed = DASH1_MAX;
+							else
+							{
+								const float t = (mag - 0.75f) / 0.25f;
+								desiredSpeed = DASH1_MAX + (DASH2_MAX - DASH1_MAX) * t;
+							}
+						}
+
+						// 地上は向きも回す（今まで通り）
+						float dot = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&g_playerFront), dir));
+						dot = ClampFloat(dot, -1.0f, 1.0f);
+
+						const float angle = acosf(dot);
+						const float rotStep = g_tune.rotSpeed * dt;
+
+						XMVECTOR newFront = dir;
+						if (angle >= rotStep)
+						{
+							const float crossY = XMVectorGetY(XMVector3Cross(XMLoadFloat3(&g_playerFront), dir));
+							const float sign = (crossY < 0.0f) ? -1.0f : +1.0f;
+							const XMMATRIX r = XMMatrixRotationY(sign * rotStep);
+							newFront = XMVector3TransformNormal(XMLoadFloat3(&g_playerFront), r);
+						}
+						XMStoreFloat3(&g_playerFront, XMVector3Normalize(newFront));
+
+						const XMVECTOR desiredVelXZ = dir * desiredSpeed;
+						const XMVECTOR delta = desiredVelXZ - velXZ;
+						const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+						const float maxDelta = moveAccel * dt;
+
+						if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+							velXZ += delta * (maxDelta / deltaLen);
+						else
+							velXZ = desiredVelXZ;
+
+						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 					}
 				}
 				else
 				{
-					// air: never brake
+					// ===== 空中：どの方向へも移動OK（ただし見た目の向きは回さない）=====
+					constexpr float AIR_SPEED_MAX = 1.6f;   // 空中最大速度（好みで）
+					constexpr float AIR_ACCEL_SCALE = 0.35f;  // 空中加速（地上比）
+
+					// 空中は地上状態を使わない（バグ防止）
 					g_brakeTimer = 0.0f;
-				}
+					g_dash2AccelDist = 0.0f;
 
-
-
-
-				if (!s_playLand)
-				{
-					if (g_act.id != PlayerActionId::Air)
+					// 入力方向へ「速度ベクトルだけ」寄せる（g_playerFront は更新しない）
+					if (g_crouchForwardJumpActive)
 					{
-						// ===== 地上（今までのまま）=====
-						if (g_brakeTimer > 0.0f)
+						const XMVECTOR jumpDir = XMVector3Normalize(XMLoadFloat3(&g_crouchForwardJumpDir));
+						XMVECTOR desiredVelXZ = jumpDir * CROUCH_FORWARD_JUMP_SPEED_XZ;
+
+						if (hasMoveDir)
 						{
-							g_brakeTimer -= dt;
-
-							static float brakeT = 0.0f;
-							brakeT += dt;
-							SkinnedModel_UpdateClip(g_playerModel, brakeT, 8, 1.40f, 1.54f, true);
-
-							velXZ += (-velXZ) * (BRAKE_FRICTION * dt);
-
-							if (g_brakeTimer <= 0.0f)
-							{
-								velXZ = XMVectorZero();
-								speedXZ = 0.0f;
-							}
-
-							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
+							desiredVelXZ += dir * (CROUCH_FORWARD_JUMP_INPUT_SPEED * mag);
 						}
+
+						const XMVECTOR delta = desiredVelXZ - velXZ;
+						const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+						const float accel = CROUCH_FORWARD_JUMP_SPEED_XZ / std::max(1.0e-6f, CROUCH_FORWARD_JUMP_ACCEL_TIME);
+						const float maxDelta = accel * dt;
+
+						if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+							velXZ += delta * (maxDelta / deltaLen);
 						else
-						{
-							static float t = 0.0f;
-							t += dt;
-							SkinnedModel_Update(g_playerModel, t, 21);
+							velXZ = desiredVelXZ;
 
-							if (mag >= 0.75f && speedXZ > 0.05f) g_dash2AccelDist += speedXZ * dt;
-							else g_dash2AccelDist = 0.0f;
-
-							float desiredSpeed = 0.0f;
-
-							if (mag < 0.5f)
-							{
-								desiredSpeed = WALK_MAX * (mag / 0.5f);
-							}
-							else if (mag < 0.75f)
-							{
-								const float t = (mag - 0.5f) / 0.25f;
-								desiredSpeed = WALK_MAX + (DASH1_MAX - WALK_MAX) * t;
-							}
-							else
-							{
-								if (g_dash2AccelDist < DASH2_STAGE1_DIST) desiredSpeed = DASH1_MAX;
-								else
-								{
-									const float t = (mag - 0.75f) / 0.25f;
-									desiredSpeed = DASH1_MAX + (DASH2_MAX - DASH1_MAX) * t;
-								}
-							}
-
-							// 地上は向きも回す（今まで通り）
-							float dot = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&g_playerFront), dir));
-							dot = ClampFloat(dot, -1.0f, 1.0f);
-
-							const float angle = acosf(dot);
-							const float rotStep = g_tune.rotSpeed * dt;
-
-							XMVECTOR newFront = dir;
-							if (angle >= rotStep)
-							{
-								const float crossY = XMVectorGetY(XMVector3Cross(XMLoadFloat3(&g_playerFront), dir));
-								const float sign = (crossY < 0.0f) ? -1.0f : +1.0f;
-								const XMMATRIX r = XMMatrixRotationY(sign * rotStep);
-								newFront = XMVector3TransformNormal(XMLoadFloat3(&g_playerFront), r);
-							}
-							XMStoreFloat3(&g_playerFront, XMVector3Normalize(newFront));
-
-							const XMVECTOR desiredVelXZ = dir * desiredSpeed;
-							const XMVECTOR delta = desiredVelXZ - velXZ;
-							const float deltaLen = XMVectorGetX(XMVector3Length(delta));
-							const float maxDelta = moveAccel * dt;
-
-							if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
-								velXZ += delta * (maxDelta / deltaLen);
-							else
-								velXZ = desiredVelXZ;
-
-							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
-						}
+						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 					}
 					else
 					{
-						// ===== 空中：どの方向へも移動OK（ただし見た目の向きは回さない）=====
-						constexpr float AIR_SPEED_MAX = 1.6f;   // 空中最大速度（好みで）
-						constexpr float AIR_ACCEL_SCALE = 0.35f;  // 空中加速（地上比）
+						const float desiredSpeed = AIR_SPEED_MAX * mag;
+						const XMVECTOR desiredVelXZ = dir * desiredSpeed;
 
-						// 空中は地上状態を使わない（バグ防止）
-						g_brakeTimer = 0.0f;
-						g_dash2AccelDist = 0.0f;
+						const XMVECTOR delta = desiredVelXZ - velXZ;
+						const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+						const float maxDelta = (moveAccel * AIR_ACCEL_SCALE * airControlScale) * dt;
 
-						// 入力方向へ「速度ベクトルだけ」寄せる（g_playerFront は更新しない）
-						if (g_crouchForwardJumpActive)
-						{
-							const XMVECTOR jumpDir = XMVector3Normalize(XMLoadFloat3(&g_crouchForwardJumpDir));
-							const XMVECTOR desiredVelXZ = jumpDir * CROUCH_FORWARD_JUMP_SPEED_XZ;
-
-							const XMVECTOR delta = desiredVelXZ - velXZ;
-							const float deltaLen = XMVectorGetX(XMVector3Length(delta));
-							const float accel = CROUCH_FORWARD_JUMP_SPEED_XZ / std::max(1.0e-6f, CROUCH_FORWARD_JUMP_ACCEL_TIME);
-							const float maxDelta = accel * dt;
-
-							if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
-								velXZ += delta * (maxDelta / deltaLen);
-							else
-								velXZ = desiredVelXZ;
-
-							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
-						}
+						if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+							velXZ += delta * (maxDelta / deltaLen);
 						else
-						{
-							const float desiredSpeed = AIR_SPEED_MAX * mag;
-							const XMVECTOR desiredVelXZ = dir * desiredSpeed;
+							velXZ = desiredVelXZ;
 
-							const XMVECTOR delta = desiredVelXZ - velXZ;
-							const float deltaLen = XMVectorGetX(XMVector3Length(delta));
-							const float maxDelta = (moveAccel * AIR_ACCEL_SCALE * airControlScale) * dt;
-
-							if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
-								velXZ += delta * (maxDelta / deltaLen);
-							else
-								velXZ = desiredVelXZ;
-
-							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
-						}
+						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 					}
 				}
-
 			}
 
+
+
+		}
+
+		else if (g_act.id == PlayerActionId::Air && g_crouchForwardJumpActive)
+		{
+			// Crouch forward jump keeps XZ momentum even without input.
+			XMVECTOR velXZ = XMVectorSet(XMVectorGetX(velocity), 0.0f, XMVectorGetZ(velocity), 0.0f);
+			const XMVECTOR jumpDir = XMVector3Normalize(XMLoadFloat3(&g_crouchForwardJumpDir));
+			const XMVECTOR desiredVelXZ = jumpDir * CROUCH_FORWARD_JUMP_SPEED_XZ;
+
+			const XMVECTOR delta = desiredVelXZ - velXZ;
+			const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+			const float accel = CROUCH_FORWARD_JUMP_SPEED_XZ / std::max(1.0e-6f, CROUCH_FORWARD_JUMP_ACCEL_TIME);
+			const float maxDelta = accel * dt;
+
+			if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+				velXZ += delta * (maxDelta / deltaLen);
+			else
+				velXZ = desiredVelXZ;
+
+			velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 		}
 
 		// 無入力検出（待機アニメ用）
@@ -770,6 +797,7 @@ void Player_Update(double elapsedTime)
 		const bool hasInput = (inMagSq > 1.0e-6f);
 
 		float fric = g_tune.friction;
+		if (g_act.id == PlayerActionId::Air) fric = 0.0f;
 		if (hasInput) fric *= 0.15f;      // 入力中は滑りやすく（加速が勝つ）
 		if (g_brakeTimer > 0.0f) fric = 0.0f; // ブレーキ中は上で減衰させてる
 
