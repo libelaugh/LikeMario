@@ -148,10 +148,12 @@ static bool  g_varJumpCutApplied = false;  // cut applied once on early release
 // ===== Visual-only fixed draw offset (jump/land) =====
 static bool  g_visFixJump = false;
 static bool  g_visFixLand = false;
+static bool  g_visFixCrouchForwardJump2 = false;
 
 // 調整値（ワールド単位）: 前にズレるなら「マイナス」で後ろに引く
-static float g_visJumpForwardFix = -3.0f; // 例: -0.10 ～ -0.30 あたりで調整
-static float g_visLandForwardFix = -1.0f; // 例
+static float g_visJumpForwardFix = -3.0f;
+static float g_visLandForwardFix = -1.0f;
+static float g_visCrouchForwardJump2Fix = -0.5f;
 
 // ===== Landing-timed 2nd jump (着地2段ジャンプ) =====
 static bool  s_airFromGroundJump = false;   // 通常の地上ジャンプ後、空中にいる間 true
@@ -314,8 +316,8 @@ void Player_Update(double elapsedTime)
 
 	const float CROUCH_FORWARD_JUMP_INPUT_MIN = 0.20f;
 	const float CROUCH_FORWARD_JUMP_FORWARD_DOT = cosf(DirectX::XMConvertToRadians(60.0f));
-	const float CROUCH_FORWARD_JUMP_Y_MULT = 0.75f;
-	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 4.5f;
+	const float CROUCH_FORWARD_JUMP_Y_MULT = 0.9f;
+	const float CROUCH_FORWARD_JUMP_SPEED_XZ = 4.0f;
 	const float CROUCH_FORWARD_JUMP_AIR_CONTROL_SCALE = 0.30f;
 
 	const float rawMoveMagSq = (rawMoveX * rawMoveX) + (rawMoveY * rawMoveY);
@@ -979,6 +981,7 @@ void Player_Update(double elapsedTime)
 			// スピン中はジャンプ/着地の見た目補正は切る（ズレ防止）
 			g_visFixLand = false;
 			g_visFixJump = false;
+			g_visFixCrouchForwardJump2 = false;
 
 			// ここで終わり：下のジャンプ/着地アニメに行かせない
 			s_prevGrounded = g_isGrounded;
@@ -997,6 +1000,7 @@ void Player_Update(double elapsedTime)
 			// Crouch ignores jump/land visual offsets
 			g_visFixLand = false;
 			g_visFixJump = false;
+			g_visFixCrouchForwardJump2 = false;
 
 			s_prevGrounded = g_isGrounded;
 			s_prevCrouch = true;
@@ -1142,6 +1146,7 @@ void Player_Update(double elapsedTime)
 			//オフセット判定は「このフレームに何を描いたか」で決める
 			g_visFixLand = playLandThisFrame;
 			g_visFixJump = playJumpThisFrame || playCrouchForwardJumpThisFrame;
+			g_visFixCrouchForwardJump2 = playCrouchForwardJumpThisFrame && s_holdCrouchForwardJumpPose;
 		}
 
 		s_prevGrounded = g_isGrounded;
@@ -1168,6 +1173,7 @@ void Player_Draw()
 	// ===== Visual-only fixed offset =====
 	float fix = 0.0f;
 	if (g_visFixLand)      fix = g_visLandForwardFix;
+	else if (g_visFixCrouchForwardJump2) fix = g_visCrouchForwardJump2Fix;
 	else if (g_visFixJump) fix = g_visJumpForwardFix;
 
 	XMVECTOR pos = XMLoadFloat3(&g_playerPos);
@@ -1200,6 +1206,7 @@ void Player_DepthDraw()
 	// ===== Visual-only fixed offset =====
 	float fix = 0.0f;
 	if (g_visFixLand)      fix = g_visLandForwardFix;
+	else if (g_visFixCrouchForwardJump2) fix = g_visCrouchForwardJump2Fix;
 	else if (g_visFixJump) fix = g_visJumpForwardFix;
 
 	XMVECTOR pos = XMLoadFloat3(&g_playerPos);
