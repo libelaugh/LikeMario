@@ -716,6 +716,33 @@ void Player_Update(double elapsedTime)
 	// ===== Integrate =====
 	position += velocity * dt;
 
+	// ===== Spin AABB vs AABB : Spin attack destroys kind==0 cube =====
+	{
+		const PlayerActionState* act = Player_GetActionState();
+		if (act && act->id == PlayerActionId::Spin)
+		{
+			constexpr float SPIN_EXPAND_XZ = 0.4f; // keep in sync with Player_GetSpinAABB default
+			AABB spinAabb = Player_ConvertPositionToAABB(position);
+			spinAabb.min.x -= SPIN_EXPAND_XZ;
+			spinAabb.max.x += SPIN_EXPAND_XZ;
+			spinAabb.min.y += 0.2f;
+			spinAabb.min.z -= SPIN_EXPAND_XZ;
+			spinAabb.max.z += SPIN_EXPAND_XZ;
+
+			const int blockCount = Stage01_GetCount();
+			for (int i = 0; i < blockCount; ++i)
+			{
+				const StageBlock* obj = Stage01_Get(i);
+				if (!obj) continue;
+				if (obj->kind != 0) continue;
+				if (!Collision_IsOverlapAABB(spinAabb, obj->aabb)) continue;
+
+				Stage01_Remove(i);
+				break;
+			}
+		}
+	}
+
 
 	// ===== AABB vs AABB : Player ‚ð Cube ‚©‚ç‰Ÿ‚µ–ß‚· =====
 	{
