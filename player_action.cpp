@@ -51,18 +51,18 @@ void PlayerAction_Update(PlayerActionState& st,
 {
     // Timers
     st.timer += dt;
-    if (st.noLedgeGrabTimer > 0.0f)
-        st.noLedgeGrabTimer = std::max(0.0f, st.noLedgeGrabTimer - dt);
+    if (st.spinCooldownTimer > 0.0f)
+        st.spinCooldownTimer = std::max(0.0f, st.spinCooldownTimer - dt);
+    if (st.spinAirDelayTimer > 0.0f)
+        st.spinAirDelayTimer = std::max(0.0f, st.spinAirDelayTimer - dt);
 
-    const float jumpHeldTime = st.jumpHoldTime;
-    if (s.onGround && in.jumpHeld)
-        st.jumpHoldTime += dt;
-    else
-        st.jumpHoldTime = 0.0f;
+    // 「このフレームでスピンに入ったか」
+    bool startedSpinThisFrame = false;
+
+
 
     // Triggers
     const bool jumpTrg = Trigger(in.jumpHeld, st.prevJump);
-    const bool jumpRel = (!in.jumpHeld && st.prevJump);
     const bool spinTrg = Trigger(in.spinHeld, st.prevSpin);
     const bool crouchTrg = Trigger(in.crouchHeld, st.prevCrouch);
 
@@ -84,37 +84,27 @@ void PlayerAction_Update(PlayerActionState& st,
     const float moveMag = InputMagnitude01(in.moveX, in.moveY);
     const bool falling = (s.velY <= -0.01f);
 
-    // Ledge grab (optional, highest priority)
-    if (st.id != PlayerActionId::LedgeHang)
-    {
-        if (!s.onGround && falling && s.ledgeAvailable && st.noLedgeGrabTimer <= 0.0f)
-        {
-            ChangeState(PlayerActionId::LedgeHang);
-        }
-    }
 
     switch (st.id)
     {
     case PlayerActionId::Ground:
     {
-        if (spinTrg)
+        if (spinTrg && st.spinCooldownTimer <= 0.0f)
         {
+            startedSpinThisFrame = true;
             st.prevBeforeSpin = PlayerActionId::Ground;
             ChangeState(PlayerActionId::Spin);
         }
+
         else if (in.crouchHeld)
         {
             ChangeState(PlayerActionId::Crouch);
         }
-        else if (jumpRel)
+        else if (jumpTrg)
         {
             out.requestJump = true;
-            if (jumpHeldTime >= p.jumpHoldStrongTime)
-                out.jumpSpeedY = p.jumpSpeedYStrong;
-            else if (jumpHeldTime >= p.jumpHoldMidTime)
-                out.jumpSpeedY = p.jumpSpeedYMid;
-            else
-                out.jumpSpeedY = p.jumpSpeedYWeak;
+            out.jumpSpeedY = p.jumpSpeedY;
+            st.spinAirDelayTimer = p.spinAirDelayAfterJump;
             ChangeState(PlayerActionId::Air);
         }
         else if (!s.onGround)
@@ -126,18 +116,13 @@ void PlayerAction_Update(PlayerActionState& st,
 
     case PlayerActionId::Air:
     {
-        // Optional: wall grab trigger
-        if (!s.onGround && falling && s.wallTouch && moveMag > 0.2f)
+        if (spinTrg && st.spinCooldownTimer <= 0.0f && st.spinAirDelayTimer <= 0.0f)
         {
-            ChangeState(PlayerActionId::WallGrab);
-            break;
-        }
-
-        if (spinTrg)
-        {
+            startedSpinThisFrame = true;
             st.prevBeforeSpin = PlayerActionId::Air;
             ChangeState(PlayerActionId::Spin);
         }
+
 
         if (s.onGround)
         {
@@ -148,29 +133,50 @@ void PlayerAction_Update(PlayerActionState& st,
 
     case PlayerActionId::Spin:
     {
-        // Slight slow-down is typical
         out.moveSpeedScale = 0.90f;
+
+        // 空中スピン中の最初の少しだけ上向き加速（上昇中でも落下中でも効く）
+        // 空中スピン中：上昇中に発動したら上昇速度を0にし、スピン中は重力を切る（overrideVelY）
+        if (st.prevBeforeSpin == PlayerActionId::Air && !s.onGround)
+        {
+            float vy = s.velY;
+
+            // 上昇中でも落下中でも開始時に縦速度を止める
+            if (startedSpinThisFrame)
+                vy = 0.0f;
+
+            // 最初の少しだけ上向き加速（合計 impulse になる）
+            if (st.timer <= p.spinAirLiftDuration)
+            {
+                const float accelY = (p.spinAirLiftImpulseY / std::max(1.0e-6f, p.spinAirLiftDuration));
+                vy += accelY * dt;
+            }
+
+            // player.cpp 側が overrideVelY=true のとき重力を適用しない前提
+            out.overrideVelY = true;
+            out.velY = vy;
+        }
+
 
         if (st.timer >= p.spinTime)
         {
+            st.spinCooldownTimer = p.spinCooldown;
             ChangeState(s.onGround ? PlayerActionId::Ground : PlayerActionId::Air);
         }
         break;
     }
 
+
+
     case PlayerActionId::Crouch:
     {
         out.moveSpeedScale = p.crouchSpeedScale;
 
-        if (jumpRel)
+        if (jumpTrg)
         {
             out.requestJump = true;
-            if (jumpHeldTime >= p.jumpHoldStrongTime)
-                out.jumpSpeedY = p.jumpSpeedYStrong;
-            else if (jumpHeldTime >= p.jumpHoldMidTime)
-                out.jumpSpeedY = p.jumpSpeedYMid;
-            else
-                out.jumpSpeedY = p.jumpSpeedYWeak;
+            out.jumpSpeedY = p.jumpSpeedY;
+            st.spinAirDelayTimer = p.spinAirDelayAfterJump;
             ChangeState(PlayerActionId::Air);
         }
 
@@ -182,75 +188,26 @@ void PlayerAction_Update(PlayerActionState& st,
 
         break;
     }
-
-    case PlayerActionId::WallGrab:
-    {
-        out.lockMoveXZ = true;
-
-        // Slide down with fixed speed
-        out.overrideVelY = true;
-        out.velY = p.wallGrabSlideSpeed;
-
-        // Wall jump
-        if (jumpTrg)
-        {
-            out.overrideVelocity = true;
-            out.velocity = Add(Mul(s.wallNormal, p.wallJumpAwaySpeed),
-                XMFLOAT3{ 0.0f, p.wallJumpUpSpeed, 0.0f });
-            ChangeState(PlayerActionId::Air);
-            break;
-        }
-
-        // Cancel conditions
-        if (in.crouchHeld) ChangeState(PlayerActionId::Air);
-        if (s.onGround)    ChangeState(PlayerActionId::Ground);
-        if (!s.wallTouch)  ChangeState(PlayerActionId::Air);
-
-        break;
-    }
-
-    case PlayerActionId::LedgeHang:
-    {
-        out.lockMoveXZ = true;
-
-        // Stick the player at the hang point if provided
-        out.overrideVelocity = true;
-        out.velocity = { 0,0,0 };
-
-        if (s.ledgeAvailable)
-        {
-            out.overridePosition = true;
-            out.position = s.ledgeHangPos;
-        }
-
-        // Jump from ledge
-        if (jumpTrg)
-        {
-            out.overrideVelocity = true;
-            out.velocity = Add(Mul(s.ledgeNormal, p.wallJumpAwaySpeed * 0.6f),
-                XMFLOAT3{ 0.0f, p.wallJumpUpSpeed, 0.0f });
-            ChangeState(PlayerActionId::Air);
-            break;
-        }
-
-        // Drop from ledge
-        if (crouchTrg || in.crouchHeld)
-        {
-            st.noLedgeGrabTimer = p.ledgeDropDelay;
-            ChangeState(PlayerActionId::Air);
-            break;
-        }
-
-        if (s.onGround)
-            ChangeState(PlayerActionId::Ground);
-
-        break;
-    }
-
     default:
         ChangeState(s.onGround ? PlayerActionId::Ground : PlayerActionId::Air);
         break;
     }
 
+    // ※遷移したそのフレーム用：Spin case に入らないのでここで空中スピンの縦制御を1回当てる
+    if (startedSpinThisFrame && st.id == PlayerActionId::Spin &&
+        st.prevBeforeSpin == PlayerActionId::Air && !s.onGround)
+    {
+        float vy = s.velY;
+        if (vy > 0.0f) vy = 0.0f;
+
+        const float accelY = (p.spinAirLiftImpulseY / std::max(1.0e-6f, p.spinAirLiftDuration));
+        vy += accelY * dt;
+
+        out.overrideVelY = true;
+        out.velY = vy;
+    }
+
+
     out.id = st.id;
 }
+

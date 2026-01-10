@@ -22,7 +22,6 @@
 #include "debug_ostream.h"
 #include "imgui_manager.h"
 #include "gamepad.h"
-#include "player_sensors.h"
 #include "player_action.h"
 #include<DirectXMath.h>
 #include <windows.h>
@@ -131,15 +130,6 @@ void Player_ResetTuning() { g_tune = k_defaultTune; }
 static bool g_inputOverride = false;
 static PlayerInput g_overrideInput{};
 
-// ===== Wall / Ledge sensors =====
-static bool g_isWallTouch = false;
-static DirectX::XMFLOAT3 g_wallNormal{ 0,0,0 }; // wall -> player (axis)
-
-static bool g_isLedgeAvailable = false;
-static DirectX::XMFLOAT3 g_ledgeHangPos{ 0,0,0 }; // snap position (center)
-static DirectX::XMFLOAT3 g_ledgeNormal{ 0,0,0 };  // wall -> player (axis)
-
-static PlayerLedgeTuning g_ledgeTune{}; // ImGuiで調整する用
 
 // ===== Action FSM =====
 static PlayerActionState  g_act{};
@@ -163,6 +153,13 @@ static bool  g_visFixLand = false;
 static float g_visJumpForwardFix = -3.0f; // 例: -0.10 ～ -0.30 あたりで調整
 static float g_visLandForwardFix = -1.0f; // 例
 
+// ===== Landing-timed 2nd jump (着地2段ジャンプ) =====
+static bool  s_airFromGroundJump = false;   // 通常の地上ジャンプ後、空中にいる間 true
+static float s_doubleJumpWindowT = 0.0f;    // 着地後の2段ジャンプ受付残り時間
+static bool  s_prevJumpHeldInput = false;   // 入力のエッジ検出用
+static float s_jumpBufferT = 0.0f;          // 着地タイミング用の入力バッファ
+
+static float g_spinYaw = 0.0f; // 見た目だけ回転
 
 
 void Player_SetInputOverride(bool enable, const PlayerInput* input)
@@ -223,6 +220,18 @@ void Player_Update(double elapsedTime)
 	static bool  s_playJump = false;
 	static float s_jumpT = 0.0f;
 
+	// ===== Double jump tuning =====
+	constexpr float DOUBLE_JUMP_HEIGHT_MULT = 1.5f;          // 目標：高さ
+	constexpr float DOUBLE_JUMP_SPEED_MULT = 1.224744871f;  // sqrt(1.5) ＝ 高さ1.5倍相当
+
+	static bool  s_playDoubleJump = false;
+	static float s_doubleJumpT = 0.0f;
+	bool doubleJumpFiredThisFrame = false;
+
+	static bool s_prevSpin = false;
+
+
+
 
 	XMVECTOR position = XMLoadFloat3(&g_playerPos);
 	XMVECTOR velocity = XMLoadFloat3(&g_playerVel);
@@ -267,6 +276,18 @@ void Player_Update(double elapsedTime)
 		// in.dash / in.spin / in.crouch : map if you want
 	}
 
+	// ===== Landing-timed 2nd jump (input buffer & window timer) =====
+	const bool jumpTrgInput = (in.jump && !s_prevJumpHeldInput);
+	s_prevJumpHeldInput = in.jump;
+
+	constexpr float JUMP_BUFFER_TIME = 0.12f;
+	if (jumpTrgInput) s_jumpBufferT = JUMP_BUFFER_TIME;
+	else             s_jumpBufferT = std::max(0.0f, s_jumpBufferT - dt);
+
+	if (s_doubleJumpWindowT > 0.0f)
+		s_doubleJumpWindowT = std::max(0.0f, s_doubleJumpWindowT - dt);
+
+
 	// ===== Action FSM =====
 	PlayerActionInput ai{};
 	ai.moveX = in.moveX;
@@ -278,18 +299,14 @@ void Player_Update(double elapsedTime)
 
 	PlayerActionSensors sen{};
 	sen.onGround = prevGround;
-	sen.velY = g_playerVel.y;
+	sen.velY = XMVectorGetY(velocity);
 
-	sen.wallTouch = g_isWallTouch;
-	sen.wallNormal = g_wallNormal;
 
-	sen.ledgeAvailable = g_isLedgeAvailable;
-	sen.ledgeHangPos = g_ledgeHangPos;
-	sen.ledgeNormal = g_ledgeNormal;
 
 	PlayerActionOutput ao{};
 	PlayerAction_Update(g_act, g_actParam, ai, sen, dt, ao);
 
+	
 	// Movement scale (crouch / spin etc.)
 	const float moveAccel = g_tune.moveAccel * ao.moveSpeedScale;
 
@@ -307,14 +324,38 @@ void Player_Update(double elapsedTime)
 		// Jump request (set Y speed)
 		if (ao.requestJump && prevGround)
 		{
-			velocity = XMVectorSetY(velocity, ao.jumpSpeedY);
+			const bool doDouble = (s_doubleJumpWindowT > 0.0f);
+			const float jumpY = doDouble ? (ao.jumpSpeedY * DOUBLE_JUMP_SPEED_MULT) : ao.jumpSpeedY;
 
-			// Variable jump: start tracking hold time (A button)
+
+			velocity = XMVectorSetY(velocity, jumpY);
+
+			// 2段ジャンプを消費
+			if (doDouble) s_doubleJumpWindowT = 0.0f;
+
+			if (doDouble) doubleJumpFiredThisFrame = true;
+
+
+			// 「地上ジャンプ由来で空中にいる」フラグ（着地ウィンドウ開始の元）
+			s_airFromGroundJump = true;
+
+			// Variable jump 側も jumpY を基準にする
+			// Variable jump start (normal jump too)
 			g_varJumpActive = true;
 			g_varJumpHoldT = 0.0f;
-			g_varJumpStartSpeedY = ao.jumpSpeedY; // strong
+			g_varJumpStartSpeedY = jumpY;
 			g_varJumpCutApplied = false;
+
+
 		}
+
+		if (ao.addVelY)
+		{
+			velocity = XMVectorSetY(velocity, XMVectorGetY(velocity) + ao.velYDelta);
+		}
+
+
+
 
 
 		// Gravity (skip while wall-grabbing, because the action overwrites velY)
@@ -328,6 +369,37 @@ void Player_Update(double elapsedTime)
 			{
 				velocity = XMVectorSetY(velocity, g_tune.terminalFall);
 			}
+
+			// ---- Spin air-lift : 落下中でも必ず浮く（重力を打ち消す + 落下速度リセット）----
+			{
+				const bool isSpin = (g_act.id == PlayerActionId::Spin);
+				const bool spinStarted = (isSpin && !s_prevSpin);
+
+				if (isSpin && !prevGround)
+				{
+					// ① このフレームに入れた重力を打ち消す（= 落下にかかってる力を0にする）
+					velocity = XMVectorSetY(velocity, XMVectorGetY(velocity) + g_tune.gravity * dt);
+
+					// ② 発動した瞬間、落下速度を0にする（どの位置/速度からでも浮く）
+					if (spinStarted)
+					{
+						// 落下中なら止める（上昇中はそのままでもOKだが、統一したければ 0 にしても良い）
+						if (XMVectorGetY(velocity) < 0.0f)
+							velocity = XMVectorSetY(velocity, 0.0f);
+					}
+
+					// ③ 浮きインパルスを「加算」で入れる（上昇中でも落下中でも効く）
+					const float liftDur = std::max(1.0e-6f, g_actParam.spinAirLiftDuration); // 例: 0.12f
+					if (g_act.timer <= liftDur)
+					{
+						const float accelY = g_actParam.spinAirLiftImpulseY / liftDur; // 合計で impulseY になる
+						velocity = XMVectorSetY(velocity, XMVectorGetY(velocity) + accelY * dt);
+					}
+				}
+
+				s_prevSpin = isSpin;
+			}
+
 		}
 
 		// Vertical speed override (wall slide etc.)
@@ -337,16 +409,23 @@ void Player_Update(double elapsedTime)
 		}
 	}
 
-	// Lock XZ movement if requested (wall grab / ledge hang)
-	if (ao.lockMoveXZ)
+	//Spin
+	PlayerActionState* st = Player_GetActionState();
+	PlayerActionParams* p = Player_GetActionParams();
+
+	if (st && p && st->id == PlayerActionId::Spin)
 	{
-		velocity = XMVectorSetX(velocity, 0.0f);
-		velocity = XMVectorSetZ(velocity, 0.0f);
+		// 0.5秒で1回転（左回り）
+		const float angSpeed = XM_2PI / p->spinTime; // rad/s
+		g_spinYaw += -angSpeed * dt; // 左回り（逆なら符号を+に）
+	}
+	else
+	{
+		g_spinYaw = 0.0f;
 	}
 
+
 	// ===== Move input (XZ) =====
-	if (!ao.lockMoveXZ)
-	{
 		// Camera-based move direction
 		XMVECTOR camFront = XMLoadFloat3(&PlayerCamera_GetFront());
 		camFront = XMVectorSetY(camFront, 0.0f);
@@ -383,103 +462,130 @@ void Player_Update(double elapsedTime)
 
 				// Start brake: input dir is >=120 deg away from current move dir
 				// cos(120°) = -0.5
-				if (g_brakeTimer <= 0.0f && mag > 1.0e-3f && speedXZ > 0.2f)
+				// Start brake: ground only (avoid weird brake state in air)
+				if (g_act.id != PlayerActionId::Air)
 				{
-					XMVECTOR velDir = velXZ * (1.0f / speedXZ);
-					float vdot = XMVectorGetX(XMVector3Dot(velDir, dir));
-					if (vdot <= -0.5f)
+					// cos(120°) = -0.5
+					if (g_brakeTimer <= 0.0f && mag > 1.0e-3f && speedXZ > 0.2f)
 					{
-						g_brakeTimer = BRAKE_TIME;
-						g_dash2AccelDist = 0.0f;
-
-						
+						XMVECTOR velDir = velXZ * (1.0f / speedXZ);
+						float vdot = XMVectorGetX(XMVector3Dot(velDir, dir));
+						if (vdot <= -0.5f)
+						{
+							g_brakeTimer = BRAKE_TIME;
+							g_dash2AccelDist = 0.0f;
+						}
 					}
 				}
-
-				if (!s_playLand && g_act.id != PlayerActionId::Air)
+				else
 				{
-					if (g_brakeTimer > 0.0f)
+					// air: never brake
+					g_brakeTimer = 0.0f;
+				}
+
+
+
+
+				if (!s_playLand)
+				{
+					if (g_act.id != PlayerActionId::Air)
 					{
-						g_brakeTimer -= dt;
-
-						//SkinnedModel_UpdateAtTime(g_playerModel, 1.54f, 8);
-						static float brakeT = 0.0f;
-						brakeT += dt;
-						SkinnedModel_UpdateClip(g_playerModel, brakeT, 8, 1.40f, 1.54f, true);
-
-						// strong damping during brake
-						velXZ += (-velXZ) * (BRAKE_FRICTION * dt);
-
-						if (g_brakeTimer <= 0.0f)
+						// ===== 地上（今までのまま）=====
+						if (g_brakeTimer > 0.0f)
 						{
-							velXZ = XMVectorZero(); // stop after 0.3s
-							speedXZ = 0.0f;
-						}
+							g_brakeTimer -= dt;
 
-						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
-					}
-					else
-					{
-						static float t = 0.0f;
-						t += dt;
-						SkinnedModel_Update(g_playerModel, t, 21);
+							static float brakeT = 0.0f;
+							brakeT += dt;
+							SkinnedModel_UpdateClip(g_playerModel, brakeT, 8, 1.40f, 1.54f, true);
 
-						// 2-stage accel for dash2:
-						// first 1 block -> DASH1, then allow DASH2
-						if (mag >= 0.75f && speedXZ > 0.05f) g_dash2AccelDist += speedXZ * dt;
-						else g_dash2AccelDist = 0.0f;
+							velXZ += (-velXZ) * (BRAKE_FRICTION * dt);
 
-						// Decide desired speed by stick magnitude
-						float desiredSpeed = 0.0f;
+							if (g_brakeTimer <= 0.0f)
+							{
+								velXZ = XMVectorZero();
+								speedXZ = 0.0f;
+							}
 
-						if (mag < 0.5f)
-						{
-							// 0-50% : slow walk
-							desiredSpeed = WALK_MAX * (mag / 0.5f);
-						}
-						else if (mag < 0.75f)
-						{
-							// 50-75% : dash1 (smooth blend from walk->dash1)
-							const float t = (mag - 0.5f) / 0.25f;
-							desiredSpeed = WALK_MAX + (DASH1_MAX - WALK_MAX) * t;
+							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 						}
 						else
 						{
-							// 75-100% : dash2
-							if (g_dash2AccelDist < DASH2_STAGE1_DIST)
+							static float t = 0.0f;
+							t += dt;
+							SkinnedModel_Update(g_playerModel, t, 21);
+
+							if (mag >= 0.75f && speedXZ > 0.05f) g_dash2AccelDist += speedXZ * dt;
+							else g_dash2AccelDist = 0.0f;
+
+							float desiredSpeed = 0.0f;
+
+							if (mag < 0.5f)
 							{
-								desiredSpeed = DASH1_MAX; // stage1 for 1 block
+								desiredSpeed = WALK_MAX * (mag / 0.5f);
+							}
+							else if (mag < 0.75f)
+							{
+								const float t = (mag - 0.5f) / 0.25f;
+								desiredSpeed = WALK_MAX + (DASH1_MAX - WALK_MAX) * t;
 							}
 							else
 							{
-								const float t = (mag - 0.75f) / 0.25f;
-								desiredSpeed = DASH1_MAX + (DASH2_MAX - DASH1_MAX) * t;
+								if (g_dash2AccelDist < DASH2_STAGE1_DIST) desiredSpeed = DASH1_MAX;
+								else
+								{
+									const float t = (mag - 0.75f) / 0.25f;
+									desiredSpeed = DASH1_MAX + (DASH2_MAX - DASH1_MAX) * t;
+								}
 							}
+
+							// 地上は向きも回す（今まで通り）
+							float dot = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&g_playerFront), dir));
+							dot = ClampFloat(dot, -1.0f, 1.0f);
+
+							const float angle = acosf(dot);
+							const float rotStep = g_tune.rotSpeed * dt;
+
+							XMVECTOR newFront = dir;
+							if (angle >= rotStep)
+							{
+								const float crossY = XMVectorGetY(XMVector3Cross(XMLoadFloat3(&g_playerFront), dir));
+								const float sign = (crossY < 0.0f) ? -1.0f : +1.0f;
+								const XMMATRIX r = XMMatrixRotationY(sign * rotStep);
+								newFront = XMVector3TransformNormal(XMLoadFloat3(&g_playerFront), r);
+							}
+							XMStoreFloat3(&g_playerFront, XMVector3Normalize(newFront));
+
+							const XMVECTOR desiredVelXZ = dir * desiredSpeed;
+							const XMVECTOR delta = desiredVelXZ - velXZ;
+							const float deltaLen = XMVectorGetX(XMVector3Length(delta));
+							const float maxDelta = moveAccel * dt;
+
+							if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
+								velXZ += delta * (maxDelta / deltaLen);
+							else
+								velXZ = desiredVelXZ;
+
+							velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 						}
+					}
+					else
+					{
+						// ===== 空中：どの方向へも移動OK（ただし見た目の向きは回さない）=====
+						constexpr float AIR_SPEED_MAX = 1.6f;   // 空中最大速度（好みで）
+						constexpr float AIR_ACCEL_SCALE = 0.35f;  // 空中加速（地上比）
 
-						// Rotate player front toward desired dir (smooth curve while <=120°)
-						float dot = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&g_playerFront), dir));
-						dot = ClampFloat(dot, -1.0f, 1.0f);
+						// 空中は地上状態を使わない（バグ防止）
+						g_brakeTimer = 0.0f;
+						g_dash2AccelDist = 0.0f;
 
-
-						const float angle = acosf(dot);
-						const float rotStep = g_tune.rotSpeed * dt;
-
-						XMVECTOR newFront = dir;
-						if (angle >= rotStep)
-						{
-							const float crossY = XMVectorGetY(XMVector3Cross(XMLoadFloat3(&g_playerFront), dir));
-							const float sign = (crossY < 0.0f) ? -1.0f : +1.0f;
-							const XMMATRIX r = XMMatrixRotationY(sign * rotStep);
-							newFront = XMVector3TransformNormal(XMLoadFloat3(&g_playerFront), r);
-						}
-						XMStoreFloat3(&g_playerFront, XMVector3Normalize(newFront));
-
-						// MoveTowards velocity to desired velocity (accel)
+						// 入力方向へ「速度ベクトルだけ」寄せる（g_playerFront は更新しない）
+						const float desiredSpeed = AIR_SPEED_MAX * mag;
 						const XMVECTOR desiredVelXZ = dir * desiredSpeed;
+
 						const XMVECTOR delta = desiredVelXZ - velXZ;
 						const float deltaLen = XMVectorGetX(XMVector3Length(delta));
-						const float maxDelta = moveAccel * dt;
+						const float maxDelta = (moveAccel * AIR_ACCEL_SCALE) * dt;
 
 						if (deltaLen > maxDelta && deltaLen > 1.0e-6f)
 							velXZ += delta * (maxDelta / deltaLen);
@@ -489,10 +595,10 @@ void Player_Update(double elapsedTime)
 						velocity = XMVectorSet(XMVectorGetX(velXZ), XMVectorGetY(velocity), XMVectorGetZ(velXZ), 0.0f);
 					}
 				}
+
 			}
 
 		}
-	}
 
 	// 無入力検出（待機アニメ用）
 	{
@@ -509,7 +615,6 @@ void Player_Update(double elapsedTime)
 			prevGround &&                 // ここは現状のロジックに合わせて prevGround を使う
 			(speedXZ <= 0.05f) &&         // ★停止判定（必要なら 0.03f～0.10f で調整）
 			(g_brakeTimer <= 0.0f) &&
-			!ao.lockMoveXZ &&
 			(ao.id == PlayerActionId::Ground);
 
 		// 待機に入ってからの累計時間
@@ -552,7 +657,7 @@ void Player_Update(double elapsedTime)
 	// ===== Friction (XZ only) =====
 	{
 		const float inMagSq = (in.moveX * in.moveX) + (in.moveY * in.moveY);
-		const bool hasInput = (inMagSq > 1.0e-6f) && !ao.lockMoveXZ;
+		const bool hasInput = (inMagSq > 1.0e-6f);
 
 		float fric = g_tune.friction;
 		if (hasInput) fric *= 0.15f;      // 入力中は滑りやすく（加速が勝つ）
@@ -611,11 +716,6 @@ void Player_Update(double elapsedTime)
 	// ===== Integrate =====
 	position += velocity * dt;
 
-	// Position snap (ledge hang)
-	if (ao.overridePosition)
-	{
-		position = XMLoadFloat3(&ao.position);
-	}
 
 	// ===== AABB vs AABB : Player を Cube から押し戻す =====
 	{
@@ -694,6 +794,39 @@ void Player_Update(double elapsedTime)
 		}
 	}
 
+	// ===== Landing-timed 2nd jump (landing window & immediate trigger) =====
+	const bool landedNow = (!s_prevGrounded && g_isGrounded);
+	if (landedNow)
+	{
+		if (s_airFromGroundJump)
+		{
+			constexpr float DOUBLE_JUMP_WINDOW = 0.14f;
+			s_doubleJumpWindowT = DOUBLE_JUMP_WINDOW;
+			s_airFromGroundJump = false;
+		}
+	}
+
+	if (g_isGrounded && (s_doubleJumpWindowT > 0.0f) && (s_jumpBufferT > 0.0f))
+	{
+		const float jumpY = g_actParam.jumpSpeedY * DOUBLE_JUMP_SPEED_MULT;
+
+
+		velocity = XMVectorSetY(velocity, jumpY);
+		g_isGrounded = false;
+
+		s_doubleJumpWindowT = 0.0f;
+		s_jumpBufferT = 0.0f;
+
+		s_airFromGroundJump = true;
+
+		g_varJumpActive = true;
+		g_varJumpHoldT = 0.0f;
+		g_varJumpStartSpeedY = jumpY;
+		g_varJumpCutApplied = false;
+
+		doubleJumpFiredThisFrame = true;
+	}
+
 
 	// Landed: reset variable-jump tracking
 	if (g_isGrounded)
@@ -704,89 +837,111 @@ void Player_Update(double elapsedTime)
 		g_varJumpCutApplied = false;
 	}
 
-
-	// ===== Build wall/ledge sensors (post-resolve) =====
-	{
-		AABB playerAabb = Player_ConvertPositionToAABB(position);
-		const float velY = XMVectorGetY(velocity);
-		const bool onGround = g_isGrounded;
-
-		PlayerWallLedgeSensors s{};
-		PlayerSensors_BuildWallLedge(playerAabb, velY, onGround, g_ledgeTune, s);
-
-		g_isWallTouch = s.wallTouch;
-		g_wallNormal = s.wallNormal;
-
-		g_isLedgeAvailable = s.ledgeAvailable;
-		g_ledgeHangPos = s.ledgeHangPos;
-		g_ledgeNormal = s.ledgeNormal;
-	}
-
 	// ===== Animation (最終決定はここでやる) =====
 	{
-		// AirからGround になった瞬間を「着地」とみなす
-		const bool landed = (!s_prevGrounded && g_isGrounded);
-		if (landed)
+		// ===== Spin : Tポーズ固定 + 見た目回転 =====
+		static float s_spinVisT = 0.0f;
+
+		if (g_act.id == PlayerActionId::Spin)
 		{
-			s_playLand = true;
-			s_landT = 0.0f;
-		}
+			// 0.5秒で1回転（左回り）
+			constexpr float SPIN_TIME = 0.5f;
+			const float angSpeed = DirectX::XM_2PI / SPIN_TIME; // rad/s
 
-		// ジャンプ開始（このフレームでジャンプ要求が通った瞬間）
-		if (ao.requestJump && prevGround)
-		{
-			s_playJump = true;
-			s_jumpT = 0.0f;
-		}
+			s_spinVisT += dt;
+			g_spinYaw += -angSpeed * dt; // 左回り（逆なら + に）
 
-		// 空中にいる間はジャンプアニメ扱い（最後停止）
-		if (!g_isGrounded) s_playJump = true;
-		// 優先度：着地 > ジャンプ > 地上通常
-		constexpr int ANIM_JUMP = 22;
-		constexpr float JUMP_CLIP_START = 0.28f;
-		constexpr float JUMP_CLIP_END = 0.44f;
+			// Tポーズ（読み込み時ポーズ）に戻す：このフレームの最終出力にする
+			SkinnedModel_ResetPose(g_playerModel);
 
-		constexpr int   ANIM_LAND = 18;
-		constexpr float LAND_CLIP_START = 0.00f;
-		constexpr float LAND_CLIP_END = 0.45f;
-		constexpr float LAND_SHOW_TIME = 0.45f;
+			// スピン中はジャンプ/着地の見た目補正は切る（ズレ防止）
+			g_visFixLand = false;
+			g_visFixJump = false;
 
-		//このフレームで適用した方を覚える（描画オフセット用）
-		bool playLandThisFrame = false;
-		bool playJumpThisFrame = false;
-
-		if (s_playLand)
-		{
-			playLandThisFrame = true;
-
-			s_landT += dt;
-			//SkinnedModel_UpdateAtTime(g_playerModel, s_landT, ANIM_LAND);
-			SkinnedModel_UpdateClip(g_playerModel, s_landT, ANIM_LAND, LAND_CLIP_START, LAND_CLIP_END, true);
-
-			// 終了判定はしてOK（ただしオフセットは playLandThisFrame で維持）
-			if (s_landT >= LAND_SHOW_TIME) s_playLand = false;
-
-			// 着地中にジャンプが混ざらないように保険
-			s_playJump = false;
+			// ここで終わり：下のジャンプ/着地アニメに行かせない
+			s_prevGrounded = g_isGrounded;
 		}
 		else
 		{
-			// 着地してて着地アニメでもないならジャンプは消す
-			if (g_isGrounded) s_playJump = false;
-
-			if (s_playJump)
+			// スピンじゃない時は回転リセット
+			s_spinVisT = 0.0f;
+			g_spinYaw = 0.0f;
+			// AirからGround になった瞬間を「着地」とみなす
+			const bool landed = (!s_prevGrounded && g_isGrounded);
+			if (landed)
 			{
-				playJumpThisFrame = true;
-
-				s_jumpT += dt;
-				SkinnedModel_UpdateClip(g_playerModel, s_jumpT, ANIM_JUMP,
-					JUMP_CLIP_START, JUMP_CLIP_END, true);
+				s_playLand = true;
+				s_landT = 0.0f;
 			}
-		}
 
-		//オフセット判定は「このフレームに何を描いたか」で決める
-		g_visFixLand = playLandThisFrame;
-		g_visFixJump = playJumpThisFrame;
+			// ジャンプ開始（このフレームでジャンプ要求が通った瞬間）
+			if (ao.requestJump && prevGround)
+			{
+				s_playJump = true;
+				s_jumpT = 0.0f;
+			}
+
+			// 2段ジャンプ開始（このフレームで2段ジャンプが発動した瞬間）
+			if (doubleJumpFiredThisFrame)
+			{
+				s_playDoubleJump = true;
+				s_doubleJumpT = 0.0f;
+
+				// 2段ジャンプを通常ジャンプより優先したいので止める
+				s_playJump = false;
+			}
+
+
+			// 空中にいる間はジャンプアニメ扱い（最後停止）
+			if (!g_isGrounded) s_playJump = true;
+			// 優先度：着地 > ジャンプ > 地上通常
+			constexpr int ANIM_JUMP = 22;
+			constexpr float JUMP_CLIP_START = 0.28f;
+			constexpr float JUMP_CLIP_END = 0.44f;
+
+			constexpr int   ANIM_LAND = 18;
+			constexpr float LAND_CLIP_START = 0.00f;
+			constexpr float LAND_CLIP_END = 0.45f;
+			constexpr float LAND_SHOW_TIME = 0.45f;
+
+			//このフレームで適用した方を覚える（描画オフセット用）
+			bool playLandThisFrame = false;
+			bool playJumpThisFrame = false;
+
+			if (s_playLand)
+			{
+				playLandThisFrame = true;
+
+				s_landT += dt;
+				//SkinnedModel_UpdateAtTime(g_playerModel, s_landT, ANIM_LAND);
+				SkinnedModel_UpdateClip(g_playerModel, s_landT, ANIM_LAND, LAND_CLIP_START, LAND_CLIP_END, true);
+
+				// 終了判定はしてOK（ただしオフセットは playLandThisFrame で維持）
+				if (s_landT >= LAND_SHOW_TIME) s_playLand = false;
+
+				// 着地中にジャンプが混ざらないように保険
+				s_playJump = false;
+			}
+			else
+			{
+				// 着地してて着地アニメでもないならジャンプは消す
+				if (g_isGrounded) s_playJump = false;
+
+				if (s_playJump)
+				{
+					playJumpThisFrame = true;
+
+					s_jumpT += dt;
+					SkinnedModel_UpdateClip(g_playerModel, s_jumpT, ANIM_JUMP,
+						JUMP_CLIP_START, JUMP_CLIP_END, true);
+				}
+			}
+
+
+			//オフセット判定は「このフレームに何を描いたか」で決める
+			g_visFixLand = playLandThisFrame;
+			g_visFixJump = playJumpThisFrame;
+		}
 
 		s_prevGrounded = g_isGrounded;
 	}
@@ -795,360 +950,6 @@ void Player_Update(double elapsedTime)
 	XMStoreFloat3(&g_playerPos, position);
 	XMStoreFloat3(&g_playerVel, velocity);
 }
-
-
-/*
-void Player_Update(double elapsedTime)
-{
-	const bool inputEnabled = !ImGuiManager::IsVisible();
-
-	XMVECTOR position = XMLoadFloat3(&g_playerPos);//演算できないXMLoadFloatから演算できるXMVECTORにする
-	XMVECTOR velocity = XMLoadFloat3(&g_playerVel);
-	XMVECTOR prevPos = position;                   // ← 衝突時に戻す用
-	XMVECTOR gvelocity = {};
-
-	PlayerInput in{};
-
-	if (g_inputOverride)
-	{
-		in = g_overrideInput;//以降、in を使って移動/ジャンプ/スピン処理する
-
-		// ===== Action FSM =====
-		PlayerActionInput ai{};
-		ai.moveX = in.moveX;
-		ai.moveY = in.moveY;
-		ai.jumpHeld = in.jump;
-		ai.dashHeld = in.dash;
-		ai.spinHeld = in.spin;
-		ai.crouchHeld = in.crouch;
-
-		PlayerActionSensors sen{};
-		sen.onGround = g_isGrounded;
-		sen.velY = g_playerVel.y;
-
-		sen.wallTouch = g_isWallTouch;
-		sen.wallNormal = g_wallNormal;
-
-		sen.ledgeAvailable = g_isLedgeAvailable;
-		sen.ledgeHangPos = g_ledgeHangPos;
-		sen.ledgeNormal = g_ledgeNormal;
-
-		PlayerActionOutput ao{};
-		PlayerAction_Update(g_act, g_actParam, ai, sen, elapsedTime, ao);
-
-		// しゃがみ等の速度倍率
-		const float moveAccel = g_tune.moveAccel * ao.moveSpeedScale;
-
-		if (ao.lockMoveXZ)
-		{
-			// 例：このフレームはXZ加速/方向更新をスキップ
-			// skipMoveXZ = true;
-		}
-
-		// ジャンプ要求
-		if (ao.requestJump)
-		{
-			velocity = XMVectorSetY(velocity, ao.jumpSpeedY);
-			g_isGrounded = false;
-		}
-
-		// 壁掴みスライド（Y速度上書き）
-		if (ao.overrideVelY)
-		{
-			velocity = XMVectorSetY(velocity, ao.velY);
-		}
-
-		// 速度丸ごと上書き（壁ジャンプ/崖からジャンプ）
-		if (ao.overrideVelocity)
-		{
-			velocity = XMLoadFloat3(&ao.velocity);
-		}
-
-		// 位置スナップ（崖掴み固定）
-		if (ao.overridePosition)
-		{
-			position = XMLoadFloat3(&ao.position);
-		}
-
-
-	}
-	else
-	{
-		//ジャンプ
-		if (inputEnabled && KeyLogger_IsTrigger(KK_J) && !g_isGrounded) {
-			velocity += {0.0f, g_tune.jumpImpulse, 0.0f};//ジャンプ力
-			g_isGrounded = true;
-		}
-
-		//重力に引かれれ落ちる
-		XMVECTOR gravity = DirectX::XMVectorSet(0.0f, -g_tune.gravity, 0.0f, 0.0f);
-		velocity += gravity * (float)elapsedTime;
-		gvelocity = velocity * (float)elapsedTime;
-
-
-		XMVECTOR direction{};
-		XMVECTOR front = XMLoadFloat3(&PlayerCamera_GetFront()) * XMVECTOR { 1.0f, 0.0f, 1.0f };
-		if (inputEnabled)
-		{
-			if (KeyLogger_IsPressed(KK_W)) {
-				direction += front;
-				direction = XMVector3Normalize(direction);
-			}
-			if (KeyLogger_IsPressed(KK_S)) {
-				direction -= front;
-				direction = XMVector3Normalize(direction);
-			}
-			if (KeyLogger_IsPressed(KK_A)) {
-				direction -= XMVector3Cross({ 0.0f,1.0f,0.0f }, front);
-				direction = XMVector3Normalize(direction);
-			}
-			if (KeyLogger_IsPressed(KK_D)) {
-				direction += XMVector3Cross({ 0.0f,1.0f,0.0f }, front);
-				direction = XMVector3Normalize(direction);
-			}
-		}
-
-
-		if (XMVectorGetX(XMVector3LengthSq(direction)) > 0.0f) {
-			direction = XMVector3Normalize(direction);
-
-			//2つのベクトルのなす角は
-			float dot = XMVectorGetX(XMVector3Dot(XMLoadFloat3(&g_playerFront), direction));
-			// ★acosの安全ガード（わずかな誤差でNaN防止）
-			if (dot > 1.0f) dot = 1.0f;
-			if (dot < -1.0f) dot = -1.0f;
-
-			float angle = acosf(dot);
-
-			//移動時のプレイヤーの回転モーション(前ベクトルを変えて回転）
-			const float ROTATION_SPEED = g_tune.rotSpeed * (float)elapsedTime;//回転速度
-
-			if (angle < ROTATION_SPEED) {
-				front = direction;
-			}
-			else {
-				//向きたい方向が右回りか左回りか 
-				XMMATRIX r = XMMatrixIdentity();
-
-				if (XMVectorGetY(XMVector3Cross(XMLoadFloat3(&g_playerFront), direction)) < 0.0f) {
-					r = XMMatrixRotationY(-ROTATION_SPEED);//プレイヤー方向の外積のY成分の正負によって回転方向を決める
-				}
-				else {
-					r = XMMatrixRotationY(ROTATION_SPEED);
-				}
-
-				front = XMVector3TransformNormal(XMLoadFloat3(&g_playerFront), r);
-			}
-			velocity += front * (float)(g_tune.moveAccel * elapsedTime);
-			XMStoreFloat3(&g_playerFront, front);
-		}
-
-		velocity += -velocity * (float)(g_tune.friction * elapsedTime);//抵抗
-
-		//位置の積分はここで1回だけ
-		position += velocity * (float)elapsedTime;//最終Position
-	}
-
-	// 面（y=0）をクランプ：打ち消しではなく固定＆落下速度ゼロ化
-	/*if (XMVectorGetY(position) < 0.0f) {
-		position = XMVectorSetY(position, 0.0f);
-		velocity = XMVectorSetY(velocity, 0.0f);
-		g_isJump = false;
-	}
-
-	if (XMVectorGetY(position) < 0.0f) {
-		position -= gvelocity;
-		//gvelocity={};
-		velocity *= { 1.0f, 0.0f, 1.0f };
-		g_isJump = false;
-	}*/
-
-	// ===== AABB vs AABB : Player を Cube から押し戻す =====
-/*
-	{
-		// 何個か重なってても抜けられるように、最大数回 解決（簡易）
-		for (int solve = 0; solve < 4; ++solve)
-		{
-			bool anyHit = false;
-
-			AABB playerAabb = Player_ConvertPositionToAABB(position);
-
-			for (int i = 0; i < Stage01_GetCount(); ++i)
-			{
-				const StageBlock* obj = Stage01_Get(i);
-				if (!obj) continue;
-
-				const AABB& box = obj->aabb;
-
-				if (!Collision_IsOverlapAABB(box, playerAabb)) continue;
-				//DumpLogAABB("Player", playerAabb);
-				//DumpLogAABB("Cube  ", box);
-
-
-				// 各軸の食い込み量（overlap）
-				const float ox = std::min(playerAabb.max.x, box.max.x) - std::max(playerAabb.min.x, box.min.x);
-				const float oy = std::min(playerAabb.max.y, box.max.y) - std::max(playerAabb.min.y, box.min.y);
-				const float oz = std::min(playerAabb.max.z, box.max.z) - std::max(playerAabb.min.z, box.min.z);
-
-				if (ox <= 0 || oy <= 0 || oz <= 0) continue;
-
-				// 中心で押し戻し方向を決める
-				const float pcx = (playerAabb.min.x + playerAabb.max.x) * 0.5f;
-				const float pcy = (playerAabb.min.y + playerAabb.max.y) * 0.5f;
-				const float pcz = (playerAabb.min.z + playerAabb.max.z) * 0.5f;
-
-				const float bcx = (box.min.x + box.max.x) * 0.5f;
-				const float bcy = (box.min.y + box.max.y) * 0.5f;
-				const float bcz = (box.min.z + box.max.z) * 0.5f;
-
-				// 最小の食い込み軸で押し戻す（MTV）
-				if (ox <= oy && ox <= oz)
-				{
-					const float dir = (pcx < bcx) ? -1.0f : +1.0f;
-					position = XMVectorSetX(position, XMVectorGetX(position) + dir * ox);
-
-					// 壁に当たったらX速度を止める
-					velocity = XMVectorSetX(velocity, 0.0f);
-				}
-				else if (oy <= ox && oy <= oz)
-				{
-					const float dir = (pcy < bcy) ? -1.0f : +1.0f;
-					position = XMVectorSetY(position, XMVectorGetY(position) + dir * oy);
-
-					// 上から着地（押し戻しが +Y）ならジャンプ終了
-					if (dir > 0.0f)
-					{
-						g_isGrounded = false;
-					}
-
-					velocity = XMVectorSetY(velocity, 0.0f);
-				}
-				else
-				{
-					const float dir = (pcz < bcz) ? -1.0f : +1.0f;
-					position = XMVectorSetZ(position, XMVectorGetZ(position) + dir * oz);
-
-					velocity = XMVectorSetZ(velocity, 0.0f);
-				}
-
-				anyHit = true;
-			}
-
-			if (!anyHit) break;
-		}
-	}
-	*/
-
-	// ===== Build wall/ledge sensors (post-resolve) =====
-// ★ここだけあなたの実装に合わせて置換
-	/*
-	AABB  playerAabb = Player_ConvertPositionToAABB(position);
-	float velY = XMVectorGetY(velocity);
-	bool  onGround = g_isGrounded;
-
-	PlayerWallLedgeSensors s{};
-	PlayerSensors_BuildWallLedge(playerAabb, velY, onGround, g_ledgeTune, s);
-
-	g_isWallTouch = s.wallTouch;
-	g_wallNormal = s.wallNormal;
-
-	g_isLedgeAvailable = s.ledgeAvailable;
-	g_ledgeHangPos = s.ledgeHangPos;
-	g_ledgeNormal = s.ledgeNormal;
-	*/
-
-		
-		
-		/*if (Collision_IsOverlapAABB(cube, player)) { // 上にたぶんのっかった
-			if (XMVectorGetY(velocity) < 0.0f) {
-				position -= velocity * (float)elapsedTime;
-				//gvelocity = {};
-				velocity *= { 1.0f, 0.0f, 1.0f };
-				g_isJump = false;
-			}
-		}*/
-
-		/*
-		for (int i = 0; i < Map_GetObjectsCount(); i++) 
-		{
-			AABB player = Player_ConvertPositionToAABB(position);
-
-			//ここが色々なオブジェクトに対応できるように
-			AABB object = Map_GetObject(i)->aabb;
-			Hit hit = Collision_IsHitAABB(object, player);
-			if (hit.isHit) {
-				if (hit.normal.y > 0.0f) {
-					//position -= gvelocity;
-					position = XMVectorSetY(position, object.max.y); // 戻り値を代入する //XMVectorSetY(position, cube.max.y);
-					//gvelocity={};
-					velocity *= { 1.0f, 0.0f, 1.0f };
-					g_isJump = false;
-				}
-			}
-			/*else if (XMVectorGetY(position) < 0.0f) {
-				position -= gvelocity;
-				//gvelocity={};
-				velocity *= { 1.0f, 0.0f, 1.0f };
-				g_isJump = false;
-			}
-		}*/
-
-		
-/*
-		XMStoreFloat3(&g_playerPos, position);
-		XMStoreFloat3(&g_playerVel, velocity);
-		*/
-
-		//壁ずり
-		// 
-		//移動したあとのプレイヤーとマップオブジェクトとの当たり判定
-		/*
-		for (int i = 0; i < Map_GetObjectsCount(); i++)
-		{
-			AABB player = Player_ConvertPositionToAABB(position);
-
-			//ここが色々なオブジェクトに対応できるように
-			AABB object = Map_GetObject(i)->aabb;;
-			Hit hit = Collision_IsHitAABB(object, player);
-
-			if (hit.isHit) {
-				if (hit.normal.x > 0.0f) {
-					position = XMVectorSetX(position, object.max.x + PLAYER_HALF_WIDTH);
-					velocity *= {0.0f, 1.0f, 1.0f};
-				}
-				else if (hit.normal.x < 0.0f) {
-					position = XMVectorSetX(position, object.min.x - PLAYER_HALF_WIDTH);
-					velocity *= {0.0f, 1.0f, 1.0f};
-				}
-				else if (hit.normal.y > 0.0f) {
-					position = XMVectorSetY(position, object.max.y);
-					velocity *= {1.0f, 0.0f, 1.0f};
-				}
-				else if (hit.normal.y < 0.0f) {
-					position = XMVectorSetY(position, object.min.y - PLAYER_HEIGHT);
-					velocity *= {1.0f, 0.0f, 1.0f};
-				}
-				else if (hit.normal.z > 0.0f) {
-					position = XMVectorSetZ(position, object.max.z + PLAYER_HALF_DEPTH);
-					velocity *= {1.0f, 1.0f, 0.0f};
-				}
-				else if (hit.normal.z < 0.0f) {
-					position = XMVectorSetZ(position, object.min.z - PLAYER_HALF_DEPTH);
-					velocity *= {1.0f, 1.0f, 0.0f};
-				}
-			}
-		}*/
-
-
-		/*
-		XMStoreFloat3(&g_playerPos, position);
-		XMStoreFloat3(&g_playerVel, velocity);
-
-		static float t = 0.0f;
-        t += (float)elapsedTime;
-        SkinnedModel_Update(g_playerModel, t, 21);//n番アニメを再生
-}
-*/
 
 void Player_Draw()
 {
@@ -1160,6 +961,7 @@ void Player_Draw()
 	//-atan2f(g_playerFront.z, g_playerFront.x) + XMConvertToRadians(270);
 	//XMMATRIX r = XMMatrixRotationX(XMConvertToRadians(angleX)) * XMMatrixRotationY(XMConvertToRadians(angleY));
 	float angle = -atan2f(g_playerFront.z, g_playerFront.x) + XMConvertToRadians(270);
+	angle += g_spinYaw;
 	XMMATRIX r = XMMatrixRotationX(XMConvertToRadians(angleX))*XMMatrixRotationY(angle);
 
 	// ===== Visual-only fixed offset =====
@@ -1192,7 +994,7 @@ void Player_DepthDraw()
 
 
 	float angle = -atan2f(g_playerFront.z, g_playerFront.x) + XMConvertToRadians(270);
-
+	angle += g_spinYaw;
 	XMMATRIX r = XMMatrixRotationY(angle);
 	// ===== Visual-only fixed offset =====
 	float fix = 0.0f;
@@ -1269,7 +1071,3 @@ PlayerActionState* Player_GetActionState()
 	return &g_act;
 }
 
-PlayerLedgeTuning* Player_GetLedgeTuning()
-{
-	return &g_ledgeTune;
-}

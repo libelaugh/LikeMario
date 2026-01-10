@@ -10,7 +10,7 @@
 
 ==============================================================================*/
 
-#include "model_skinned.h"
+#include "model_skinned_fixed.h"
 // --- DEFENSIVE INCLUDES (ヘッダの include guard 衝突や include 順の問題を避ける) ---
 #include "collision.h"
 #include <unordered_map>
@@ -301,6 +301,49 @@ static void ReadNodeHierarchy(
         ReadNodeHierarchy(animTime, node->mChildren[i], globalTransform, anim, boneMap, boneOffset, globalInverse, outFinal);
     }
 }
+
+static void ReadNodeHierarchyBindPose(
+    const aiNode* node,
+    const DirectX::XMMATRIX& parentTransform,
+    const std::unordered_map<std::string, uint32_t>& boneMap,
+    const std::vector<DirectX::XMMATRIX>& boneOffset,
+    const DirectX::XMMATRIX& globalInverse,
+    std::vector<DirectX::XMMATRIX>& outFinal
+)
+{
+    using namespace DirectX;
+
+    std::string nodeName = node->mName.C_Str();
+
+    // 読み込み時（bind/rest）のローカル行列
+    XMMATRIX nodeTransform = CalcNodeLocalTransform(node);
+
+    // row-vector 系なので「子 * 親」
+    XMMATRIX globalTransform = nodeTransform * parentTransform;
+
+    auto it = boneMap.find(nodeName);
+    if (it != boneMap.end())
+    {
+        uint32_t boneIndex = it->second;
+        if (boneIndex < outFinal.size())
+        {
+            outFinal[boneIndex] = boneOffset[boneIndex] * globalTransform * globalInverse;
+        }
+    }
+
+    for (unsigned int i = 0; i < node->mNumChildren; ++i)
+    {
+        ReadNodeHierarchyBindPose(
+            node->mChildren[i],
+            globalTransform,
+            boneMap,
+            boneOffset,
+            globalInverse,
+            outFinal
+        );
+    }
+}
+
 
 //------------------------------------------------------------------------------
 // Texture helper (model.cpp とほぼ同じ)
@@ -730,6 +773,96 @@ void SkinnedModel_UpdateClip(SKINNED_MODEL* model,
 
     SkinnedModel_ApplyAnimation(model, anim, animationIndex, animTime);
 }
+
+void SkinnedModel_ResetPose(SKINNED_MODEL* model)
+{
+    using namespace DirectX;
+
+    if (!model || !model->scene) return;
+
+    // キャッシュ無効化（同フレームで戻したい時に効く）
+    model->lastAnimIndex = -1;
+    model->lastAnimTime = -1.0;
+
+    // boneFinal を一旦初期化
+    for (auto& mtx : model->boneFinal)
+        mtx = XMMatrixIdentity();
+
+    // 読み込み時ポーズ（bind/rest）で boneFinal を作る
+    ReadNodeHierarchyBindPose(
+        model->scene->mRootNode,
+        XMMatrixIdentity(),
+        model->boneMap,
+        model->boneOffset,
+        model->globalInverse,
+        model->boneFinal
+    );
+
+    // boneFinal で CPU スキニングして VB 更新（ApplyAnimation と同じ処理）
+    ID3D11DeviceContext* ctx = Direct3D_GetContext();
+
+    for (unsigned int m = 0; m < model->meshes.size(); ++m)
+    {
+        SKINNED_MESH& mesh = model->meshes[m];
+
+        for (size_t v = 0; v < mesh.baseVerts.size(); ++v)
+        {
+            const BaseVertex& bv = mesh.baseVerts[v];
+            const Influence4& inf = mesh.influences[v];
+
+            XMVECTOR p = XMLoadFloat3(&bv.position);
+            XMVECTOR n = XMLoadFloat3(&bv.normal);
+
+            XMVECTOR pOut = XMVectorZero();
+            XMVECTOR nOut = XMVectorZero();
+            float sumW = 0.0f;
+
+            for (int i = 0; i < 4; ++i)
+            {
+                float w = inf.w[i];
+                if (w <= 0.0f) continue;
+
+                uint32_t bi = inf.idx[i];
+                if (bi >= model->boneFinal.size()) continue;
+
+                sumW += w;
+
+                XMMATRIX M = model->boneFinal[bi];
+                pOut += XMVector3TransformCoord(p, M) * w;
+                nOut += XMVector3TransformNormal(n, M) * w;
+            }
+
+            if (sumW <= 0.0f)
+            {
+                // ウェイトが無い頂点はそのまま
+                pOut = p;
+                nOut = n;
+            }
+            else
+            {
+                // 念のため正規化（inf.Normalize() 済みなら実質不要）
+                float inv = 1.0f / sumW;
+                pOut *= inv;
+                nOut *= inv;
+            }
+
+            nOut = XMVector3Normalize(nOut);
+
+            XMStoreFloat3(&mesh.skinnedVerts[v].position, pOut);
+            XMStoreFloat3(&mesh.skinnedVerts[v].normalVector, nOut);
+        }
+
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        HRESULT hr = ctx->Map(mesh.vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+        if (SUCCEEDED(hr))
+        {
+            memcpy(mapped.pData, mesh.skinnedVerts.data(),
+                sizeof(SkinnedVertex3d) * mesh.skinnedVerts.size());
+            ctx->Unmap(mesh.vb, 0);
+        }
+    }
+}
+
 
 
 //------------------------------------------------------------------------------

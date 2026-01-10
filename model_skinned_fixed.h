@@ -49,6 +49,8 @@ void SkinnedModel_UpdateClip(SKINNED_MODEL* model,//Ø‚è”²‚«Ä¶(ƒ‹[ƒvON/OFF—L‚
     float clipEndSec,
     bool holdLastFrame = true);
 
+void SkinnedModel_ResetPose(SKINNED_MODEL* model);
+
 // •`‰æiŠù‘¶‚Ì Shader3D ‚Å•`‰æj
 void SkinnedModel_Draw(SKINNED_MODEL* model, const DirectX::XMMATRIX& mtxWorld);
 

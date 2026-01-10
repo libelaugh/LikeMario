@@ -68,7 +68,6 @@ struct PlayerLedgeTuning;
 const DirectX::XMFLOAT3& Player_GetVelocity();
 PlayerActionParams* Player_GetActionParams();
 PlayerActionState* Player_GetActionState();
-PlayerLedgeTuning* Player_GetLedgeTuning();
 
 
 
