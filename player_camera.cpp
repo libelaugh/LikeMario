@@ -53,15 +53,33 @@ void PlayerCamera_Finalize()
 void PlayerCamera_Update(float elapsedTime)
 {
     const bool toggleKey = KeyLogger_IsPressed(KK_L);
-    if (toggleKey && !g_prevToggleKey) {
+    const bool togglePressed = toggleKey && !g_prevToggleKey;
+    bool toggledOn = false;
+    bool toggledOff = false;
+    if (togglePressed) {
         g_enableKeyCamera = !g_enableKeyCamera;
-        if (g_enableKeyCamera) {
-            g_cameraUp = { 0.0f, 1.0f, 0.0f };
-            g_cameraRight = { 1.0f, 0.0f, 0.0f };
-        }
+        toggledOn = g_enableKeyCamera;
+        toggledOff = !g_enableKeyCamera;
     }
 
     g_prevToggleKey = toggleKey;
+
+    if (toggledOn) {
+        XMVECTOR front = XMLoadFloat3(&g_cameraFront);
+        XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+        XMVECTOR right = XMVector3Normalize(XMVector3Cross(up, front));
+        up = XMVector3Normalize(XMVector3Cross(front, right));
+        XMStoreFloat3(&g_cameraUp, up);
+        XMStoreFloat3(&g_cameraRight, right);
+    }
+    else if (toggledOff) {
+        XMVECTOR playerPos = XMLoadFloat3(&Player_GetPosition());
+        XMVECTOR cameraPos = XMLoadFloat3(&g_cameraPos);
+        XMVECTOR offsetVec = cameraPos - playerPos;
+        XMFLOAT3 offset{};
+        XMStoreFloat3(&offset, offsetVec);
+        g_normalCameraYaw = std::atan2(-offset.x, -offset.z);
+    }
 
     XMVECTOR position{};
     XMVECTOR front{};
@@ -90,7 +108,7 @@ void PlayerCamera_Update(float elapsedTime)
         g_normalCameraYaw += yawSpeed * elapsedTime;
 
         XMVECTOR playerPos = XMLoadFloat3(&Player_GetPosition());
-        XMVECTOR baseOffset = { 0.0f, 2.0f, -5.0f };
+        XMVECTOR baseOffset = { 0.0f, 4.0f, -5.0f };//ÉJÉÅÉâà íuåàÇﬂ
         XMMATRIX yawRot = XMMatrixRotationY(g_normalCameraYaw);
         XMVECTOR rotatedOffset = XMVector3TransformCoord(baseOffset, yawRot);
         position = playerPos + rotatedOffset;

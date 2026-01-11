@@ -33,16 +33,28 @@ namespace
 {
     std::vector<StageBlock> g_blocks;
 
+    /*=====================================*/
     //テクスチャ追加するときは４箇所いじる
     enum TexSlot : int
     {
         TEX_BRICK = 0,
         TEX_RED = 1,
         TEX_WHITE = 2,
+
+        TEX_STONE0 = 10,TEX_STONE1 = 11,TEX_STONE2 = 12, TEX_STONE3 = 13,
+         TEX_STONE4 = 14, TEX_STONE5 = 15, TEX_STONE6 = 16, TEX_STONE7 = 17,
+        TEX_STONE8 = 18, TEX_STONE9 = 19,
+
+        TEX_WOOD0 = 20, TEX_WOOD1 =21, TEX_WOOD2 =22, TEX_WOOD3 =23,
+
+        TEX_V0 = 30, TEX_V1 = 31, TEX_V2 = 32, TEX_V3 = 33,
+        TEX_V4 = 34, TEX_V5 = 35, TEX_V6 = 36, TEX_V7 = 37,
+
+        TEX_CHECK0 = 40, TEX_CHECK1 = 41,
         TEX_MAX
     };
 
-    int g_tex[TEX_MAX] = { -1, -1, -1 };//TexSlotの個数
+    int g_tex[TEX_MAX];//TexSlotの個数
 
     char g_stageJsonPath[260] = "stage01.json";
 
@@ -89,12 +101,52 @@ namespace
 
 namespace
 {
+    /*=============================================*/
     // 既存の enum TexSlot と g_tex[] はそのまま使う
     const char* g_texSlotNames[TEX_MAX] =
     {
-        "Brick",
-        "Red",
-        "White",
+        /*  0 */ "Brick",
+        /*  1 */ "Red",
+        /*  2 */ "White",
+        /*  3 */ "Unused",
+        /*  4 */ "Unused",
+        /*  5 */ "Unused",
+        /*  6 */ "Unused",
+        /*  7 */ "Unused",
+        /*  8 */ "Unused",
+        /*  9 */ "Unused",
+        /* 10 */ "Stone0",
+        /* 11 */ "Stone1",
+        /* 12 */ "Stone2",
+        /* 13 */ "Stone3",
+        /* 14 */ "Stone4",
+        /* 15 */ "Stone5",
+        /* 16 */ "Stone6",
+        /* 17 */ "Stone7",
+        /* 18 */ "Stone8",
+        /* 19 */ "Stone9",
+        /* 20 */ "Wood0",
+        /* 21 */ "Wood1",
+        /* 22 */ "Wood2",
+        /* 23 */ "Wood3",
+        /* 24 */ "Unused",
+        /* 25 */ "Unused",
+        /* 26 */ "Unused",
+        /* 27 */ "Unused",
+        /* 28 */ "Unused",
+        /* 29 */ "Unused",
+        /* 30 */ "V0",
+        /* 31 */ "V1",
+        /* 32 */ "V2",
+        /* 33 */ "V3",
+        /* 34 */ "V4",
+        /* 35 */ "V5",
+        /* 36 */ "V6",
+        /* 37 */ "V7",
+        /* 38 */ "Unused",
+        /* 39 */ "Unused",
+        /* 40 */ "Check0",
+        /* 41 */ "Check1",
     };
 
     void ApplyTex(StageBlock& b)
@@ -109,12 +161,11 @@ namespace
 
 int Stage01_GetTexSlotCount() { return TEX_MAX; }
 
-
-
 const char* Stage01_GetTexSlotName(int slot)
 {
     if (slot < 0 || slot >= TEX_MAX) return "Invalid";
-    return g_texSlotNames[slot];
+    const char* s = g_texSlotNames[slot];
+    return (s && s[0]) ? s : "Unused";
 }
 
 void Stage01_SetCurrentJsonPath(const char* filepath)
@@ -130,8 +181,6 @@ const char* Stage01_GetCurrentJsonPath()
     return g_stageJsonPath;
 }
 
-
-
 void Stage01_Initialize()
 {
     Stage01_Initialize(Stage01_GetCurrentJsonPath());
@@ -143,7 +192,7 @@ void Stage01_Initialize()
     g_blocks.clear();
     g_blocks.reserve(4096);
 
-    g_tex[TEX_BRICK] = Texture_Load(L"rengaBlock.png");
+    g_tex[TEX_BRICK] = Texture_Load(L"texture/rengaBlock.png");
     g_tex[TEX_RED] = Texture_Load(L"red.png");
 
     if (Stage01_LoadJson("stage01.json"))
@@ -186,10 +235,29 @@ void Stage01_Initialize(const char* jsonPath)
     g_blocks.clear();
     g_blocks.reserve(4096);
 
-    g_tex[TEX_BRICK] = Texture_Load(L"rengaBlock.png");
-    g_tex[TEX_RED] = Texture_Load(L"red.png");
+    std::fill(std::begin(g_tex), std::end(g_tex), -1);
+
+
+/*==============================================*/
+    g_tex[TEX_BRICK] = Texture_Load(L"texture/rengaBlock.png");
+    g_tex[TEX_RED] = Texture_Load(L"texture/red.png");
     g_tex[TEX_WHITE] = Texture_Load(L"white.png");
 
+    g_tex[TEX_STONE0] = Texture_Load(L"texture/stone0.png"); g_tex[TEX_STONE1] = Texture_Load(L"texture/stone1.png");
+    g_tex[TEX_STONE2] = Texture_Load(L"texture/stone2.png"); g_tex[TEX_STONE3] = Texture_Load(L"texture/stone3.png");
+    g_tex[TEX_STONE4] = Texture_Load(L"texture/stone4.png"); g_tex[TEX_STONE5] = Texture_Load(L"texture/stone5.png");
+    g_tex[TEX_STONE6] = Texture_Load(L"texture/stone6.png"); g_tex[TEX_STONE7] = Texture_Load(L"texture/stone7.png");
+    g_tex[TEX_STONE8] = Texture_Load(L"texture/stone8.jpg"); g_tex[TEX_STONE9] = Texture_Load(L"texture/stone9.jpg");
+
+    g_tex[TEX_WOOD0] = Texture_Load(L"texture/wood0.png"); g_tex[TEX_WOOD1] = Texture_Load(L"texture/wood1.png");
+    g_tex[TEX_WOOD2] = Texture_Load(L"texture/wood2.png"); g_tex[TEX_WOOD3] = Texture_Load(L"texture/wood3.png");
+
+    g_tex[TEX_V0] = Texture_Load(L"texture/v0.png"); g_tex[TEX_V1] = Texture_Load(L"texture/v1.png");
+    g_tex[TEX_V2] = Texture_Load(L"texture/v2.png"); g_tex[TEX_V3] = Texture_Load(L"texture/v3.png");
+    g_tex[TEX_V4] = Texture_Load(L"texture/v4.png"); g_tex[TEX_V5] = Texture_Load(L"texture/v5.png");
+    g_tex[TEX_V6] = Texture_Load(L"texture/v6.jpg"); g_tex[TEX_V7] = Texture_Load(L"texture/v7.png");
+
+    g_tex[TEX_CHECK0] = Texture_Load(L"texture/check0.png"); g_tex[TEX_CHECK1] = Texture_Load(L"texture/check1.jpg");
 
     // まずは指定 json を読む（例: stage02.json）
     if (Stage01_LoadJson(Stage01_GetCurrentJsonPath()))
