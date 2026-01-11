@@ -14,7 +14,8 @@
 using namespace DirectX;
 
 static XMFLOAT3 no{0.0f,0.0f,0.0f};
-static XMFLOAT3 aPos1{};
+static float aTime = 0.0f;
+static float aPrevOffsetY = 0.0f;
 
 void StageSimple_Initialize()
 {
@@ -26,6 +27,9 @@ void StageSimple_Finalize()
 
 void StageSimple_Update(double elapsedTime)
 {
-    aPos1.y += 5.0f*sinf(elapsedTime);
-    Map_AddObjectTransform(72, aPos1, no, no);
+    aTime += static_cast<float>(elapsedTime);
+    const float offsetY = 54.0f * sinf(aTime);
+    const float deltaY = offsetY - aPrevOffsetY;
+    aPrevOffsetY = offsetY;
+    Map_AddObjectTransform(72, { 0.0f, deltaY, 0.0f }, no, no);
 }
