@@ -24,11 +24,12 @@ static float PrevOffsetY1 = 0.0f;
 struct StageSimpleRidePlatform
 {
     int blockIndex;
+    float deltaX;
     float deltaY;
+    float deltaZ;
 };
-static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform * platforms, int platformCount)
- {
-
+static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform* platforms, int platformCount)
+{
     const AABB playerAabb = Player_GetAABB();
     const XMFLOAT3& playerVel = Player_GetVelocity();
     const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
@@ -37,7 +38,7 @@ static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform * platf
     for (int i = 0; i < platformCount; ++i)
     {
         const StageSimpleRidePlatform& platform = platforms[i];
-        if (std::fabs(platform.deltaY) <= 0.0f)
+        if (std::fabs(platform.deltaX) <= 0.0f && std::fabs(platform.deltaY) <= 0.0f && std::fabs(platform.deltaZ) <= 0.0f)
             {
             continue;
             }
@@ -56,7 +57,9 @@ static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform * platf
         if (overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform)
         {
             DirectX::XMFLOAT3 pos = Player_GetPosition();
+            pos.x += platform.deltaX;
             pos.y += platform.deltaY;
+            pos.z += platform.deltaZ;
             Player_DebugTeleport(pos, false);
             return true;
         }
@@ -79,18 +82,22 @@ void StageSimple_Update(double elapsedTime)
 
     const float offsetY1 = 5.0f * sinf(aTime);
     const float deltaY1 = offsetY1 - PrevOffsetY1;
-    //Å¶è„â∫Ç∑ÇÈCubeÇ…ÇÕïKê{
+
+    static float offsetX1 = 0.0f;
+    offsetX1 += 0.005f * static_cast<float>(elapsedTime);
+    if (offsetX1 > 100.0f) offsetX1 = 0.0f;
+    const float deltaX1 = offsetX1;
+
+    //Å¶è„â∫ç∂âEÇ∑ÇÈCubeÇ…ÇÕìoò^ïKê{
     const StageSimpleRidePlatform ridePlatforms[] = {
-    { 72, deltaY1 } };
+    { 72, 0.0f, deltaY1, 0.0f },
+    { 74, deltaX1, 0.0f, 0.0f } };
     StageSimple_ApplyRidePlatforms(ridePlatforms, sizeof(ridePlatforms) / sizeof(ridePlatforms[0]));
 
     PrevOffsetY1 = offsetY1;
     Stage01_AddObjectTransform(72, { 0.0f, deltaY1, 0.0f }, no, no);
 
-    static float offsetX1 = 0.0f;
-    offsetX1 -= 0.005f * static_cast<float>(elapsedTime);
-    if (offsetX1 > 10.0f) offsetX1 = 0.0f;
-    Stage01_AddObjectTransform(74, { offsetX1, 0.0f, 0.0f }, no, no);
+    Stage01_AddObjectTransform(74, { deltaX1, 0.0f, 0.0f }, no, no);
 
 
 
