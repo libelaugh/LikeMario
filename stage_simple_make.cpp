@@ -50,7 +50,10 @@ void StageSimple_Update(double elapsedTime)
             const float dy = playerAabb.min.y - box.max.y;
             constexpr float kGroundEps = 0.06f;
 
-            if (overlapXZ && dy >= -0.002f && dy <= kGroundEps)
+            const XMFLOAT3& playerVel = Player_GetVelocity();
+            const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
+
+            if (overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform)
             {
                 DirectX::XMFLOAT3 pos = Player_GetPosition();
                 pos.y += deltaY;
