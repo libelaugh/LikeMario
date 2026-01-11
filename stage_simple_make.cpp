@@ -29,12 +29,21 @@ struct StageSimpleRidePlatform
     float deltaY;
     float deltaZ;
 };
+static bool StageSimple_CanRideBlock(const AABB& playerAabb, bool canRidePlatform, const StageBlock& block)
+{
+    constexpr float kGroundEps = 0.06f;
+    const AABB& box = block.aabb;
+    const bool overlapXZ = !(playerAabb.max.x <= box.min.x || playerAabb.min.x >= box.max.x ||
+        playerAabb.max.z <= box.min.z || playerAabb.min.z >= box.max.z);
+    const float dy = playerAabb.min.y - box.max.y;
+
+    return overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform;
+}
 static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform* platforms, int platformCount)
 {
     const AABB playerAabb = Player_GetAABB();
     const XMFLOAT3& playerVel = Player_GetVelocity();
     const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
-    constexpr float kGroundEps = 0.06f;
 
     for (int i = 0; i < platformCount; ++i)
     {
@@ -50,12 +59,7 @@ static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform* platfo
             continue;
         }
 
-        const AABB& box = block->aabb;
-        const bool overlapXZ = !(playerAabb.max.x <= box.min.x || playerAabb.min.x >= box.max.x ||
-            playerAabb.max.z <= box.min.z || playerAabb.min.z >= box.max.z);
-        const float dy = playerAabb.min.y - box.max.y;
-
-        if (overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform)
+        if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *block))
         {
             DirectX::XMFLOAT3 pos = Player_GetPosition();
             pos.x += platform.deltaX;
@@ -134,17 +138,11 @@ void StageSimple_Update(double elapsedTime)
         const AABB playerAabb = Player_GetAABB();
         const XMFLOAT3& playerVel = Player_GetVelocity();
         const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
-        constexpr float kGroundEps = 0.06f;
-        const AABB& cubeBox = cube81->aabb;
-        const bool overlapXZ = !(playerAabb.max.x <= cubeBox.min.x || playerAabb.min.x >= cubeBox.max.x ||
-            playerAabb.max.z <= cubeBox.min.z || playerAabb.min.z >= cubeBox.max.z);
-        const float dy = playerAabb.min.y - cubeBox.max.y;
 
-        if (overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform)
+        if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *cube81))
         {
             if (!isOffsetZ7)
             {
-                isOffsetZ7 = true;
                 startTimeZ7 = aTime;
                 prevOffsetZ7 = 0.0f;
             }
