@@ -107,15 +107,10 @@ void StageSimple_Update(double elapsedTime)
     static bool  isOffsetZ7 = false;
     static float startTimeZ7 = 0.0f;
     static float prevOffsetZ7 = 0.0f;
-    float deltaZ7 = 0.0f; float offsetZ7{};
+    float deltaZ7 = 0.0f;
+    float offsetZ7 = prevOffsetZ7;
 
-    //※上下左右するCubeには登録必須
-    const StageSimpleRidePlatform ridePlatforms[] = {
-    { 72, 0.0f, deltaY1, 0.0f },
-    { 74, deltaX1, 0.0f, 0.0f },{ 75, deltaX2, 0.0f, 0.0f },{ 76, deltaX3, 0.0f, 0.0f },
-    { 77, deltaX4, 0.0f, 0.0f }, { 78, deltaX5, 0.0f, 0.0f }, { 79, deltaX6, 0.0f, 0.0f },
-    { 81, 0.0f, 0.0f, deltaZ7 }, };
-    StageSimple_ApplyRidePlatforms(ridePlatforms, sizeof(ridePlatforms) / sizeof(ridePlatforms[0]));
+    
 
     prevOffsetY1 = offsetY1;
     prevOffsetX1 = offsetX1;prevOffsetX2 = offsetX2;prevOffsetX3 = offsetX3;
@@ -135,21 +130,28 @@ void StageSimple_Update(double elapsedTime)
     //XMFLOAT3 pos = Player_GetPosition(); AABB player = Player_ConvertPositionToAABB(XMLoadFloat3(&pos));
     const StageBlock* cube81 = Stage01_Get(81);
     if (cube81 && Collision_IsOverlapAABB(Player_GetAABB(), cube81->aabb)) {
-        if (!isOffsetZ7) {                 // 初回起動の瞬間だけ
+        if (!isOffsetZ7) {
             isOffsetZ7 = true;
-            startTimeZ7 = aTime;          // 起動時刻
-            prevOffsetZ7 = 0.0f;           // 相対オフセットにする
+            startTimeZ7 = aTime;
+            prevOffsetZ7 = 0.0f;
         }
     }
-
     if (isOffsetZ7) {
-        const float t = aTime - startTimeZ7;   // 起動後の経過時間
-        const float offsetZ7 = 0.5f * t;       // 速度0.5で前進
+        const float t = aTime - startTimeZ7;
+        offsetZ7 = 0.5f * t;
         deltaZ7 = offsetZ7 - prevOffsetZ7;
-        prevOffsetZ7 = offsetZ7;
     }
-        Stage01_AddObjectTransform(81, { 0.0f, 0.0f, deltaZ7 }, no, no);
+    prevOffsetZ7 = offsetZ7;
     
 
+        //※上下左右するCubeには登録必須
+        const StageSimpleRidePlatform ridePlatforms[] = {
+        { 72, 0.0f, deltaY1, 0.0f },
+        { 74, deltaX1, 0.0f, 0.0f },{ 75, deltaX2, 0.0f, 0.0f },{ 76, deltaX3, 0.0f, 0.0f },
+        { 77, deltaX4, 0.0f, 0.0f }, { 78, deltaX5, 0.0f, 0.0f }, { 79, deltaX6, 0.0f, 0.0f },
+        { 81, 0.0f, 0.0f, deltaZ7 }, };
+        StageSimple_ApplyRidePlatforms(ridePlatforms, sizeof(ridePlatforms) / sizeof(ridePlatforms[0]));
 
+
+        Stage01_AddObjectTransform(81, { 0.0f, 0.0f, deltaZ7 }, no, no);
 }
