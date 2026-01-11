@@ -40,7 +40,7 @@ void StageSimple_Update(double elapsedTime)
     if (std::fabs(deltaY) > 0.0f)
     {
         const StageBlock* block = Stage01_Get(72);
-        if (block && Player_IsGrounded())
+        if (block)
         {
             const AABB playerAabb = Player_GetAABB();
             const AABB& box = block->aabb;
