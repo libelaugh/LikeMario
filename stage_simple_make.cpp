@@ -18,7 +18,52 @@ using namespace DirectX;
 static XMFLOAT3 no{ 0.0f,0.0f,0.0f };
 static float aTime = 0.0f;
 
-static float aPrevOffsetY = 0.0f;
+static float PrevOffsetY1 = 0.0f;
+
+//上下するCube上のプレイヤーの挙動を正常化する関数
+struct StageSimpleRidePlatform
+{
+    int blockIndex;
+    float deltaY;
+};
+static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform * platforms, int platformCount)
+ {
+
+    const AABB playerAabb = Player_GetAABB();
+    const XMFLOAT3& playerVel = Player_GetVelocity();
+    const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
+    constexpr float kGroundEps = 0.06f;
+
+    for (int i = 0; i < platformCount; ++i)
+    {
+        const StageSimpleRidePlatform& platform = platforms[i];
+        if (std::fabs(platform.deltaY) <= 0.0f)
+            {
+            continue;
+            }
+        
+            const StageBlock * block = Stage01_Get(platform.blockIndex);
+        if (!block)
+        {
+            continue;
+        }
+
+        const AABB& box = block->aabb;
+        const bool overlapXZ = !(playerAabb.max.x <= box.min.x || playerAabb.min.x >= box.max.x ||
+            playerAabb.max.z <= box.min.z || playerAabb.min.z >= box.max.z);
+        const float dy = playerAabb.min.y - box.max.y;
+
+        if (overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform)
+        {
+            DirectX::XMFLOAT3 pos = Player_GetPosition();
+            pos.y += platform.deltaY;
+            Player_DebugTeleport(pos, false);
+            return true;
+        }
+    }
+
+    return false;
+}
 
 void StageSimple_Initialize()
 {
@@ -32,38 +77,22 @@ void StageSimple_Update(double elapsedTime)
 {
     aTime += static_cast<float>(elapsedTime);
 
-    const float offsetY = 5.0f * sinf(aTime);
-    const float deltaY = offsetY - aPrevOffsetY;
+    const float offsetY1 = 5.0f * sinf(aTime);
+    const float deltaY1 = offsetY1 - PrevOffsetY1;
+    //※上下するCubeには必須
+    const StageSimpleRidePlatform ridePlatforms[] = {
+    { 72, deltaY1 } };
+    StageSimple_ApplyRidePlatforms(ridePlatforms, sizeof(ridePlatforms) / sizeof(ridePlatforms[0]));
 
-    bool ridePlatform = false;
-    if (std::fabs(deltaY) > 0.0f)
-    {
-        const StageBlock* block = Stage01_Get(72);
-        if (block)
-        {
-            const AABB playerAabb = Player_GetAABB();
-            const AABB& box = block->aabb;
+    PrevOffsetY1 = offsetY1;
+    Stage01_AddObjectTransform(72, { 0.0f, deltaY1, 0.0f }, no, no);
 
-            const bool overlapXZ = !(playerAabb.max.x <= box.min.x || playerAabb.min.x >= box.max.x ||
-                playerAabb.max.z <= box.min.z || playerAabb.min.z >= box.max.z);
-            const float dy = playerAabb.min.y - box.max.y;
-            constexpr float kGroundEps = 0.06f;
+    static float offsetX1 = 0.0f;
+    offsetX1 -= 0.005f * static_cast<float>(elapsedTime);
+    if (offsetX1 > 10.0f) offsetX1 = 0.0f;
+    Stage01_AddObjectTransform(74, { offsetX1, 0.0f, 0.0f }, no, no);
 
-            const XMFLOAT3& playerVel = Player_GetVelocity();
-            const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
 
-            ridePlatform = overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform;
-        }
-    }
 
-    aPrevOffsetY = offsetY;
-    Stage01_AddObjectTransform(72, { 0.0f, deltaY, 0.0f }, no, no);
-
-    if (ridePlatform)
-    {
-        DirectX::XMFLOAT3 pos = Player_GetPosition();
-        pos.y += deltaY;
-        Player_DebugTeleport(pos, false);
-    }
 
 }
