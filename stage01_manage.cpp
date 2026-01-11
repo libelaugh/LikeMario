@@ -33,6 +33,15 @@ namespace
 {
     std::vector<StageBlock> g_blocks;
 
+    struct StageRuntimeOffset
+    {
+        XMFLOAT3 position{ 0,0,0 };
+        XMFLOAT3 size{ 0,0,0 };
+        XMFLOAT3 rotation{ 0,0,0 };
+    };
+    
+    std::vector<StageRuntimeOffset> g_offsets;
+
     /*=====================================*/
     //テクスチャ追加するときは４箇所いじる
     enum TexSlot : int
@@ -67,8 +76,12 @@ namespace
         {-0.5f,+0.5f,+0.5f}, {+0.5f,+0.5f,+0.5f},
     };
 
-    void Bake(StageBlock& b)
+    void Bake(StageBlock& b, const StageRuntimeOffset& offset)
     {
+        const XMFLOAT3 size{ b.size.x + b.sizeOffset.x, b.size.y + b.sizeOffset.y, b.size.z + b.sizeOffset.z };
+        const XMFLOAT3 rot{ b.rotation.x + b.rotationOffset.x, b.rotation.y + b.rotationOffset.y, b.rotation.z + b.rotationOffset.z };
+        const XMFLOAT3 pos{ b.position.x + b.positionOffset.x, b.position.y + b.positionOffset.y, b.position.z + b.positionOffset.z };
+
         XMMATRIX S = XMMatrixScaling(b.size.x, b.size.y, b.size.z);
         XMMATRIX R = XMMatrixRotationRollPitchYaw(b.rotation.x, b.rotation.y, b.rotation.z);
         XMMATRIX T = XMMatrixTranslation(b.position.x, b.position.y, b.position.z);
@@ -233,7 +246,9 @@ void Stage01_Initialize(const char* jsonPath)
     Map_Initialize();
 
     g_blocks.clear();
+    g_offsets.clear();
     g_blocks.reserve(4096);
+    g_offsets.reserve(4096);
 
     std::fill(std::begin(g_tex), std::end(g_tex), -1);
 
@@ -284,8 +299,7 @@ void Stage01_Initialize(const char* jsonPath)
         b.size = { r.sx, r.sy, r.sz };
         b.rotation = { r.rx, r.ry, r.rz };
 
-        Bake(b);
-        g_blocks.push_back(b);
+        Stage01_Add(b, true);
     }
 }
 
@@ -295,6 +309,7 @@ void Stage01_Finalize()
     Map_Finalize();
 
     g_blocks.clear();
+    g_offsets.clear();
 }
 
 void Stage01_Update(double elapsedTime)
@@ -357,23 +372,24 @@ void Stage01_RebuildObject(int i)
 {
     if (i < 0 || i >= (int)g_blocks.size()) return;
     ApplyTex(g_blocks[i]);
-    Bake(g_blocks[i]);
+    Bake(g_blocks[i], g_offsets[i]);
 }
 
 void Stage01_RebuildAll()
 {
-    for (auto& b : g_blocks) {
-        ApplyTex(b);
-        Bake(b);
+    for (size_t i = 0; i < g_blocks.size(); ++i) {
+        Bake(g_blocks[i], g_offsets[i]);
+        ApplyTex(g_blocks[i]);
     }
 }
 
 int Stage01_Add(const StageBlock& b, bool bake)
 {
     g_blocks.push_back(b);
+    g_offsets.emplace_back();
     if (bake) {
         ApplyTex(g_blocks.back());
-        Bake(g_blocks.back());
+        Bake(g_blocks.back(), g_offsets.back());
     }
     return (int)g_blocks.size() - 1;
 }
@@ -382,11 +398,13 @@ void Stage01_Remove(int i)
 {
     if (i < 0 || i >= (int)g_blocks.size()) return;
     g_blocks.erase(g_blocks.begin() + i);
+    g_offsets.erase(g_offsets.begin() + i);
 }
 
 void Stage01_Clear()
 {
     g_blocks.clear();
+    g_offsets.clear();
 }
 
 bool Stage01_AddObjectTransform(int index,
@@ -394,18 +412,18 @@ bool Stage01_AddObjectTransform(int index,
     const DirectX::XMFLOAT3& sizeDelta,
     const DirectX::XMFLOAT3& rotationDelta)
 {
-    StageBlock* block = Stage01_GetMutable(index);
-    if (!block) return false;
-
-    block->position.x += positionDelta.x;
-    block->position.y += positionDelta.y;
-    block->position.z += positionDelta.z;
-    block->size.x += sizeDelta.x;
-    block->size.y += sizeDelta.y;
-    block->size.z += sizeDelta.z;
-    block->rotation.x += rotationDelta.x;
-    block->rotation.y += rotationDelta.y;
-    block->rotation.z += rotationDelta.z;
+    if (index < 0 || index >= (int)g_offsets.size()) return false;
+    StageRuntimeOffset & offset = g_offsets[index];
+    
+    offset.position.x += positionDelta.x;
+    offset.position.y += positionDelta.y;
+    offset.position.z += positionDelta.z;
+    offset.size.x += sizeDelta.x;
+    offset.size.y += sizeDelta.y;
+    offset.size.z += sizeDelta.z;
+    offset.rotation.x += rotationDelta.x;
+    offset.rotation.y += rotationDelta.y;
+    offset.rotation.z += rotationDelta.z;
     Stage01_RebuildObject(index);
     return true;
 }

@@ -26,6 +26,9 @@ struct StageBlock
     DirectX::XMFLOAT3 position{ 0,0,0 }; // 中心
     DirectX::XMFLOAT3 size{ 1,1,1 };     // スケール
     DirectX::XMFLOAT3 rotation{ 0,0,0 }; // pitch,yaw,roll (ラジアン)
+    DirectX::XMFLOAT3 positionOffset{ 0,0,0 }; // 一時の座標変化(ImGuiの編集値は保持)
+    DirectX::XMFLOAT3 sizeOffset{ 0,0,0 };
+    DirectX::XMFLOAT3 rotationOffset{ 0,0,0 };
 
     DirectX::XMFLOAT4X4 world{};
     AABB aabb{};
