@@ -389,6 +389,28 @@ void Stage01_Clear()
     g_blocks.clear();
 }
 
+bool Stage01_AddObjectTransform(int index,
+    const DirectX::XMFLOAT3& positionDelta,
+    const DirectX::XMFLOAT3& sizeDelta,
+    const DirectX::XMFLOAT3& rotationDelta)
+{
+    StageBlock* block = Stage01_GetMutable(index);
+    if (!block) return false;
+
+    block->position.x += positionDelta.x;
+    block->position.y += positionDelta.y;
+    block->position.z += positionDelta.z;
+    block->size.x += sizeDelta.x;
+    block->size.y += sizeDelta.y;
+    block->size.z += sizeDelta.z;
+    block->rotation.x += rotationDelta.x;
+    block->rotation.y += rotationDelta.y;
+    block->rotation.z += rotationDelta.z;
+    Stage01_RebuildObject(index);
+    return true;
+}
+
+
 // ===== JSON Save/Load =====
 namespace
 {

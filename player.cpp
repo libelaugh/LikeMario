@@ -282,12 +282,13 @@ void Player_Update(double elapsedTime)
 	else if (inputEnabled)
 	{
 		// Keyboard fallback (not the main path)
+		/*
 		if (KeyLogger_IsPressed(KK_W)) in.moveY += 1.0f;
 		if (KeyLogger_IsPressed(KK_S)) in.moveY -= 1.0f;
 		if (KeyLogger_IsPressed(KK_D)) in.moveX += 1.0f;
 		if (KeyLogger_IsPressed(KK_A)) in.moveX -= 1.0f;
 
-		in.jump = KeyLogger_IsPressed(KK_J);
+		in.jump = KeyLogger_IsPressed(KK_J);*/
 		// in.dash / in.spin / in.crouch : map if you want
 	}
 
@@ -913,7 +914,7 @@ void Player_Update(double elapsedTime)
 			{
 				const StageBlock* obj = Stage01_Get(i);
 				if (!obj) continue;
-				if (obj->kind != 0) continue;
+				if (obj->kind != 10) continue;//kind==１０のCubeにスピンを当てたら破壊できる
 				if (!Collision_IsOverlapAABB(spinAabb, obj->aabb)) continue;
 
 				Stage01_Remove(i);
@@ -928,6 +929,7 @@ void Player_Update(double elapsedTime)
 		for (int solve = 0; solve < 4; ++solve)
 		{
 			bool anyHit = false;
+			bool removedBlock = false;
 
 			for (int i = 0; i < Stage01_GetCount(); ++i)
 			{
@@ -971,6 +973,16 @@ void Player_Update(double elapsedTime)
 						g_isGrounded = true;
 					}
 
+					// Hit head (jumping) : remove kind==0 cube
+					if (dir < 0.0f && XMVectorGetY(velocity) > 0.0f && obj->kind == 10)
+					{
+						Stage01_Remove(i);
+						removedBlock = true;
+						anyHit = true;
+						velocity = XMVectorSetY(velocity, 0.0f);
+						break;
+					}
+
 					velocity = XMVectorSetY(velocity, 0.0f);
 				}
 				else
@@ -981,6 +993,11 @@ void Player_Update(double elapsedTime)
 				}
 
 				anyHit = true;
+			}
+
+			if (removedBlock)
+			{
+				continue;
 			}
 
 			if (!anyHit) break;
@@ -1063,7 +1080,6 @@ void Player_Update(double elapsedTime)
 
 		static float s_crouchForwardJumpT = 0.0f;
 		static bool s_playCrouchForwardJump = false;
-		static bool s_holdCrouchForwardJumpPose = false;
 
 		if (g_act.id == PlayerActionId::Spin)
 		{
@@ -1127,13 +1143,11 @@ void Player_Update(double elapsedTime)
 			{
 				s_playCrouchForwardJump = true;
 				s_crouchForwardJumpT = 0.0f;
-				s_holdCrouchForwardJumpPose = false;
 			}
 			if (g_isGrounded)
 			{
 				s_playCrouchForwardJump = false;
 				s_crouchForwardJumpT = 0.0f;
-				s_holdCrouchForwardJumpPose = false;
 			}
 			// AirからGround になった瞬間を「着地」とみなす
 			const bool landed = (!s_prevGrounded && g_isGrounded);
@@ -1173,10 +1187,8 @@ void Player_Update(double elapsedTime)
 			constexpr float LAND_CLIP_END = 0.45f;
 			constexpr float LAND_SHOW_TIME = 0.45f;
 
-			constexpr float CROUCH_FJUMP_CLIP1_START = 0.40f;
-			constexpr float CROUCH_FJUMP_CLIP1_END = 0.50f;
 			constexpr float CROUCH_FJUMP_CLIP2_START = 0.00f;
-			constexpr float CROUCH_FJUMP_CLIP2_END = 0.00f;
+			constexpr float CROUCH_FJUMP_CLIP2_END = 0.01f;
 
 			//このフレームで適用した方を覚える（描画オフセット用）
 			bool playCrouchForwardJumpThisFrame = false;
@@ -1189,30 +1201,13 @@ void Player_Update(double elapsedTime)
 			{
 				playCrouchForwardJumpThisFrame = true;
 
-				const float clip1Len = (CROUCH_FJUMP_CLIP1_END - CROUCH_FJUMP_CLIP1_START);
 				const float clip2Len = (CROUCH_FJUMP_CLIP2_END - CROUCH_FJUMP_CLIP2_START);
 
-				if (!s_holdCrouchForwardJumpPose)
-				{
-					s_crouchForwardJumpT += dt;
-					SkinnedModel_UpdateClip(g_playerModel, s_crouchForwardJumpT, 7,
-						CROUCH_FJUMP_CLIP1_START, CROUCH_FJUMP_CLIP1_END, true);
-
-				if (clip1Len > 0.0f && s_crouchForwardJumpT >= clip1Len)
-				{
-					s_holdCrouchForwardJumpPose = true;
+				s_crouchForwardJumpT += dt;
+				SkinnedModel_UpdateClip(g_playerModel, s_crouchForwardJumpT, 4,
+					CROUCH_FJUMP_CLIP2_START, CROUCH_FJUMP_CLIP2_END, true);
+				if (clip2Len <= 0.0f)
 					s_crouchForwardJumpT = 0.0f;
-				}
-				}
-
-				if (s_holdCrouchForwardJumpPose)
-				{
-					s_crouchForwardJumpT += dt;
-					SkinnedModel_UpdateClip(g_playerModel, s_crouchForwardJumpT, 4,
-						CROUCH_FJUMP_CLIP2_START, CROUCH_FJUMP_CLIP2_END, true);
-					if (clip2Len <= 0.0f)
-						s_crouchForwardJumpT = 0.0f;
-				}
 
 				// 着地中にジャンプが混ざらないように保険
 				s_playLand = false;
@@ -1253,7 +1248,7 @@ void Player_Update(double elapsedTime)
 			//オフセット判定は「このフレームに何を描いたか」で決める
 			g_visFixLand = playLandThisFrame;
 			g_visFixJump = playJumpThisFrame || playCrouchForwardJumpThisFrame;
-			g_visFixCrouchForwardJump2 = playCrouchForwardJumpThisFrame && s_holdCrouchForwardJumpPose;
+			g_visFixCrouchForwardJump2 = playCrouchForwardJumpThisFrame;
 		}
 
 		s_prevGrounded = g_isGrounded;

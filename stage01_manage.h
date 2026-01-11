@@ -58,6 +58,11 @@ int  Stage01_Add(const StageBlock& b, bool bake = true);
 void Stage01_Remove(int i);
 void Stage01_Clear();
 
+bool Stage01_AddObjectTransform(int index,
+    const DirectX::XMFLOAT3& positionDelta,
+    const DirectX::XMFLOAT3& sizeDelta,
+    const DirectX::XMFLOAT3& rotationDelta);
+
 bool Stage01_SaveJson(const char* filepath);
 bool Stage01_LoadJson(const char* filepath);
 

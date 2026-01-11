@@ -223,15 +223,13 @@ void Game_Update(float elapsedTime)
 		}
 	}
 
-	Player_Update(elapsedTime);
 	//Sky_SetPosition(PlayerCamera_GetPosition());
 
+	Player_Update(elapsedTime);
 	PlayerCamera_Update(elapsedTime);
 
 
 	SpriteAnim_Update(elapsedTime);
-
-	g_AccumulatedTime += elapsedTime;
 
 
 	Stage01_Update(elapsedTime);
