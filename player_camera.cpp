@@ -31,6 +31,7 @@ static XMFLOAT4X4 g_CameraPerspectiveMatrix{};
 static float CAMERA_MOVE_SPEED = 4.0f;
 static float CAMERA_ROTATION_SPEED = XMConvertToRadians(30.0f);
 static bool g_enableKeyCamera = false;
+static bool g_prevToggleKey = false;
 
 void PlayerCamera_Initialize()
 {
@@ -44,13 +45,16 @@ void PlayerCamera_Finalize()
 
 void PlayerCamera_Update(float elapsedTime)
 {
-    if (KeyLogger_IsTrigger(KK_L)) {
+    const bool toggleKey = KeyLogger_IsPressed(KK_L);
+    if (toggleKey && !g_prevToggleKey) {
         g_enableKeyCamera = !g_enableKeyCamera;
         if (g_enableKeyCamera) {
             g_cameraUp = { 0.0f, 1.0f, 0.0f };
             g_cameraRight = { 1.0f, 0.0f, 0.0f };
         }
     }
+
+    g_prevToggleKey = toggleKey;
 
     XMVECTOR position{};
     XMVECTOR front{};
@@ -65,14 +69,15 @@ void PlayerCamera_Update(float elapsedTime)
     }
     else {
         position = XMLoadFloat3(&Player_GetPosition());
-        XMVECTOR offset = { 0.0f, 0.5f, -3.5f };
+        XMVECTOR offset = { 0.0f, 2.0f, -5.0f };
         position += offset;
-        XMFLOAT3 dir = { 0.0f, 0.0f, 1.0f };
+        XMFLOAT3 dir = { 0.0f, -0.15f, 1.0f };
         front = XMLoadFloat3(&dir);
         up = XMLoadFloat3(&g_cameraUp);
         right = XMLoadFloat3(&g_cameraRight);
     }
 
+    //g_enableKeyCamera = true;
     if (g_enableKeyCamera) {
         // Rotate
         if (KeyLogger_IsPressed(KK_DOWN)) {
