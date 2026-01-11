@@ -34,6 +34,7 @@
 #include "imgui_manager.h"
 #include "imgui.h"
 #include"item.h"
+#include"stage_simple_make.h"
 #include <type_traits>
 #include <utility>
 #include <cmath>
@@ -54,7 +55,7 @@ static bool g_isDebug = false;
 
 static bool g_padDrivingPlayer = false;
 
-static const char* g_startStageJson = "lab_action.json";
+static const char* g_startStageJson = "stage_simple.json";
 
 namespace {
 	DirectX::XMFLOAT3 g_CubePos = { 0.0f, 0.0f, 0.0f };
@@ -99,7 +100,7 @@ void Game_Initialize()
 	g_pModelWoodenBarrel = ModelLoad("model/Wooden_Barrel/Wooden_Barrel.fbx", 0.01, false);
 	g_pModelSword1 = ModelLoad("model/Sting-Sword lowpoly.fbx", 0.1, false);
 
-	Player_Initialize({ -0.7f, 3.0f, 1.5f }, { 0,0,1 }); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
+	Player_Initialize({ -56.0f, 5.0f, 57.5f }, { 0,0,1 }); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
 	PlayerCamera_Initialize();
 	//Map_Initialize();
@@ -129,6 +130,8 @@ void Game_Initialize()
 	Item_Add({ 3.0f, 1.5f, 1.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
+
+
 }
 
 void Game_Finalize()
@@ -221,81 +224,19 @@ void Game_Update(float elapsedTime)
 	}
 
 	Player_Update(elapsedTime);
-	//Enemy_Update(elapsedTime);
 	//Sky_SetPosition(PlayerCamera_GetPosition());
 
-	/*if (KeyLogger_IsTrigger(KK_L)) {
-		g_isDebug = !g_isDebug;
-	}
-	if (g_isDebug) {
-		Camera_Update(elapsedTime); //キー対応のみのカメラ 座標変換ミスってる
-	}
-	else {
-		PlayerCamera_Update(elapsedTime);
-	}*/
 	PlayerCamera_Update(elapsedTime);
 
-	//Bullet_Update(elapsedTime);
-
-	//弾とマップとの当たり判定（AABB vs AABB)
-	/*for (int j = 0; j < Map_GetObjectsCount(); j++) {
-		for (int i = 0; i < Bullet_GetBulletsCount(); i++) {
-			AABB bullet = Bullet_GetAABB(i);
-			AABB object = Map_GetObject(j)->aabb;
-			if (Collision_IsOverlapAABB(bullet, object)) {
-				BulletHitEffect_Create(Bullet_GetPosition(i));
-				Bullet_Destroy(i);
-			}
-		}
-	}*/
-
-	//敵と弾との当たり判定
-	/*for (int j = 0; j < Enemy_GetEnemyCount(); j++) {
-		for (int i = 0; i < Bullet_GetBulletsCount(); i++) {
-
-			Sphere bullet = Bullet_GetSphere(i);
-			Sphere enemy = Enemy_GetEnemy(j)->GetCollision();
-
-			if (Collision_IsOverlapSphere(bullet, enemy)) {
-				BulletHitEffect_Create(Bullet_GetPosition(i));
-				Bullet_Destroy(i);
-				Enemy_GetEnemy(j)->Damage(50);
-			}
-		}
-	}*/
 
 	SpriteAnim_Update(elapsedTime);
-	//BulletHitEffect_Update();//引数にelapsedTime無くてもUpdateは呼ばれる
 
-	//Cube_Update(elapsed_time);
 	g_AccumulatedTime += elapsedTime;
-
-	//g_x = sin(g_AccumulatedTime) * 5.0f;
-
-	//g_y = sin(g_AccumulatedTime) * 1.0f;
-	//g_z = -sin(g_AccumulatedTime) * 1.0f;
-	//g_y = sin(g_AccumulatedTime)* 1.5f;
-	g_angle = (float) - g_AccumulatedTime * 2.0f;
-	//g_scale = (sin(g_AccumulatedTime)+1)*0.5f * 5.0f;
-	g_scale = 1.0f;
-
-	/*if (KeyLogger_IsTrigger(KK_SPACE)) {
-		g_cubePos = Camera_GetPosition();
-		XMStoreFloat3(&g_cubeVel, XMLoadFloat3(&Camera_GetFront()) * 10.0f);
-	}*/
-
-	// 毎フレームの更新は「保存した速度」を使う（カメラに依存させない）
-	XMVECTOR cube_position = XMLoadFloat3(&g_cubePos);
-	cube_position += XMLoadFloat3(&g_cubeVel) * elapsedTime;
-	XMStoreFloat3(&g_cubePos, cube_position);
-
-
-
-
 
 
 	Stage01_Update(elapsedTime);
 	Item_Update();
+	StageSimple_Update(elapsedTime);
 	/*ステージ切り替えはこんな感じ
 	const char* path = "stage02.json";
 
@@ -406,7 +347,7 @@ void Game_Draw()
 	XMMATRIX W2 = XMMatrixIdentity();
 	float w2_offset = MeshField_GetHalf(); W2 = XMMatrixTranslation(-w2_offset, 0, -w2_offset);
 	Direct3D_SetDepthShadowTexture(2);
-	MeshField_Draw(W2);
+	//MeshField_Draw(W2);
 
 	/*Sampler_SetFilterAnisotropic();
 	XMMATRIX theWorld = XMMatrixTranslation(3.0f, 0.5f, 2.0f);
