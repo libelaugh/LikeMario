@@ -78,13 +78,25 @@ namespace
 
     void Bake(StageBlock& b, const StageRuntimeOffset& offset)
     {
-        const XMFLOAT3 size{ b.size.x + b.sizeOffset.x, b.size.y + b.sizeOffset.y, b.size.z + b.sizeOffset.z };
-        const XMFLOAT3 rot{ b.rotation.x + b.rotationOffset.x, b.rotation.y + b.rotationOffset.y, b.rotation.z + b.rotationOffset.z };
-        const XMFLOAT3 pos{ b.position.x + b.positionOffset.x, b.position.y + b.positionOffset.y, b.position.z + b.positionOffset.z };
-
-        XMMATRIX S = XMMatrixScaling(b.size.x, b.size.y, b.size.z);
-        XMMATRIX R = XMMatrixRotationRollPitchYaw(b.rotation.x, b.rotation.y, b.rotation.z);
-        XMMATRIX T = XMMatrixTranslation(b.position.x, b.position.y, b.position.z);
+        const XMFLOAT3 size{
+        b.size.x + b.sizeOffset.x + offset.size.x,
+        b.size.y + b.sizeOffset.y + offset.size.y,
+        b.size.z + b.sizeOffset.z + offset.size.z
+        };
+        const XMFLOAT3 rot{
+        b.rotation.x + b.rotationOffset.x + offset.rotation.x,
+        b.rotation.y + b.rotationOffset.y + offset.rotation.y,
+        b.rotation.z + b.rotationOffset.z + offset.rotation.z
+         };
+        const XMFLOAT3 pos{
+        b.position.x + b.positionOffset.x + offset.position.x,
+        b.position.y + b.positionOffset.y + offset.position.y,
+        b.position.z + b.positionOffset.z + offset.position.z
+         };
+        
+        XMMATRIX S = XMMatrixScaling(size.x, size.y, size.z);
+        XMMATRIX R = XMMatrixRotationRollPitchYaw(rot.x, rot.y, rot.z);
+        XMMATRIX T = XMMatrixTranslation(pos.x, pos.y, pos.z);
         XMMATRIX W = S * R * T;
 
         XMStoreFloat4x4(&b.world, W);
