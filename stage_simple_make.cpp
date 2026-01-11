@@ -129,11 +129,25 @@ void StageSimple_Update(double elapsedTime)
 
     //XMFLOAT3 pos = Player_GetPosition(); AABB player = Player_ConvertPositionToAABB(XMLoadFloat3(&pos));
     const StageBlock* cube81 = Stage01_Get(81);
-    if (cube81 && Collision_IsOverlapAABB(Player_GetAABB(), cube81->aabb)) {
-        if (!isOffsetZ7) {
-            isOffsetZ7 = true;
-            startTimeZ7 = aTime;
-            prevOffsetZ7 = 0.0f;
+    if (cube81)
+    {
+        const AABB playerAabb = Player_GetAABB();
+        const XMFLOAT3& playerVel = Player_GetVelocity();
+        const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
+        constexpr float kGroundEps = 0.06f;
+        const AABB& cubeBox = cube81->aabb;
+        const bool overlapXZ = !(playerAabb.max.x <= cubeBox.min.x || playerAabb.min.x >= cubeBox.max.x ||
+            playerAabb.max.z <= cubeBox.min.z || playerAabb.min.z >= cubeBox.max.z);
+        const float dy = playerAabb.min.y - cubeBox.max.y;
+
+        if (overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform)
+        {
+            if (!isOffsetZ7)
+            {
+                isOffsetZ7 = true;
+                startTimeZ7 = aTime;
+                prevOffsetZ7 = 0.0f;
+            }
         }
     }
     if (isOffsetZ7) {
