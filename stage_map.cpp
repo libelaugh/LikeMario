@@ -133,6 +133,26 @@ int Map_AddBlock(const CubeBlock& block, bool bake)
     return static_cast<int>(g_Blocks.size()) - 1;
 }
 
+bool Map_AddObjectTransform(int index,
+    const XMFLOAT3& positionDelta,
+    const XMFLOAT3& sizeDelta,
+    const XMFLOAT3& rotationDelta)
+{
+    if (index < 0 || index >= static_cast<int>(g_Blocks.size())) return false;
+    CubeBlock& block = g_Blocks[index];
+    block.position.x += positionDelta.x;
+    block.position.y += positionDelta.y;
+    block.position.z += positionDelta.z;
+    block.size.x += sizeDelta.x;
+    block.size.y += sizeDelta.y;
+    block.size.z += sizeDelta.z;
+    block.rotation.x += rotationDelta.x;
+    block.rotation.y += rotationDelta.y;
+    block.rotation.z += rotationDelta.z;
+    Cube_BakeBlock(block);
+    return true;
+}
+
 void Map_Clear()
 {
     g_Blocks.clear();

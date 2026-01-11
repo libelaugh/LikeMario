@@ -27,6 +27,11 @@ void Map_RebuildObject(int index);
 
 int Map_AddBlock(const CubeBlock& block, bool bake = true);
 
+bool Map_AddObjectTransform(int index,
+    const DirectX::XMFLOAT3& positionDelta,
+    const DirectX::XMFLOAT3& sizeDelta,
+    const DirectX::XMFLOAT3& rotationDelta);
+
 void Map_Clear();
 
 #endif//STAGE_MAP_H
