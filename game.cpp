@@ -225,16 +225,19 @@ void Game_Update(float elapsedTime)
 
 	//Sky_SetPosition(PlayerCamera_GetPosition());
 
+	SpriteAnim_Update(elapsedTime);
+	
+
+
+
+
+	StageSimple_Update(elapsedTime);
+	Stage01_Update(elapsedTime);
+
 	Player_Update(elapsedTime);
 	PlayerCamera_Update(elapsedTime);
 
-
-	SpriteAnim_Update(elapsedTime);
-
-
-	Stage01_Update(elapsedTime);
 	Item_Update();
-	StageSimple_Update(elapsedTime);
 	/*ステージ切り替えはこんな感じ
 	const char* path = "stage02.json";
 
