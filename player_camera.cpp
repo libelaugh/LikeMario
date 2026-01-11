@@ -11,6 +11,7 @@
 #include"direct3d.h"
 #include"shader3d.h"
 #include"key_logger.h"
+#include"gamepad.h"
 #include "mouse.h"
 #include"debug_text.h"
 #include"player.h"
@@ -18,6 +19,7 @@
 #include"shader_billboard.h"
 #include <windows.h>
 #include<sstream>
+#include <cmath>
 
 using namespace DirectX;
 
@@ -32,6 +34,11 @@ static float CAMERA_MOVE_SPEED = 4.0f;
 static float CAMERA_ROTATION_SPEED = XMConvertToRadians(30.0f);
 static bool g_enableKeyCamera = false;
 static bool g_prevToggleKey = false;
+static float g_normalCameraYaw = 0.0f;
+
+static const float NORMAL_CAMERA_TARGET_OFFSET_Y = 1.25f;
+static const float NORMAL_CAMERA_STICK_DEADZONE = 0.2f;
+static const float NORMAL_CAMERA_STICK_YAW_SENSITIVITY = XMConvertToRadians(90.0f);
 
 void PlayerCamera_Initialize()
 {
@@ -60,6 +67,7 @@ void PlayerCamera_Update(float elapsedTime)
     XMVECTOR front{};
     XMVECTOR up{};
     XMVECTOR right{};
+    XMVECTOR target{};
 
     if (g_enableKeyCamera) {
         position = XMLoadFloat3(&g_cameraPos);
@@ -68,13 +76,30 @@ void PlayerCamera_Update(float elapsedTime)
         right = XMLoadFloat3(&g_cameraRight);
     }
     else {
-        position = XMLoadFloat3(&Player_GetPosition());
-        XMVECTOR offset = { 0.0f, 2.0f, -5.0f };
-        position += offset;
-        XMFLOAT3 dir = { 0.0f, -0.15f, 1.0f };
-        front = XMLoadFloat3(&dir);
-        up = XMLoadFloat3(&g_cameraUp);
-        right = XMLoadFloat3(&g_cameraRight);
+        GamepadState pad{};
+        float stickX = 0.0f;
+        if (Gamepad_GetState(0, &pad) && pad.connected) {
+            stickX = pad.rx;
+        }
+
+        if (std::abs(stickX) < NORMAL_CAMERA_STICK_DEADZONE) {
+            stickX = 0.0f;
+        }
+
+        float yawSpeed = stickX * NORMAL_CAMERA_STICK_YAW_SENSITIVITY;
+        g_normalCameraYaw += yawSpeed * elapsedTime;
+
+        XMVECTOR playerPos = XMLoadFloat3(&Player_GetPosition());
+        XMVECTOR baseOffset = { 0.0f, 2.0f, -5.0f };
+        XMMATRIX yawRot = XMMatrixRotationY(g_normalCameraYaw);
+        XMVECTOR rotatedOffset = XMVector3TransformCoord(baseOffset, yawRot);
+        position = playerPos + rotatedOffset;
+
+        XMVECTOR lookTarget = playerPos + XMVECTOR{ 0.0f, NORMAL_CAMERA_TARGET_OFFSET_Y, 0.0f };
+        front = XMVector3Normalize(lookTarget - position);
+        up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+        right = XMVector3Normalize(XMVector3Cross(up, front));
+        target = lookTarget;
     }
 
     //g_enableKeyCamera = true;
@@ -124,23 +149,21 @@ void PlayerCamera_Update(float elapsedTime)
         if (KeyLogger_IsPressed(KK_E)) {
             position += XMVECTOR{ 0.0f,-1.0f,0.0f }*CAMERA_MOVE_SPEED * elapsedTime;
         }
+        target = position + front;
     }
-    XMVECTOR target = position + front;
-    // position += {0.0f, 10.0f, -7.0f};//カメラ位置
 
     XMStoreFloat3(&g_cameraPos, position);
     XMStoreFloat3(&g_cameraFront, front);
     XMStoreFloat3(&g_cameraUp, up);
     XMStoreFloat3(&g_cameraRight, right);
 
-    //ビュー座標変換行列の作成　
-    // LH = LeftHand  //引数：カメラ位置、注視点、カメラの上ベクトル（回転対応のため）
+
     // View matrix
+    // LH = LeftHand  //引数：カメラ位置、注視点、カメラの上ベクトル（回転対応のため）
     XMMATRIX mtrView = XMMatrixLookAtLH(
         position,
         target,
         up);
-
 
     //パースペクティブ行列の作成
     //引数：画角度の半分rad、(float)アスペクト比=幅÷高さ,視錐台近平面、,視錐台遠平面
@@ -175,7 +198,7 @@ void PlayerCamera_Update(float elapsedTime)
         target,
         { 0.0f,1.0f,0.0f });
 
-    
+
 //パースペクティブ行列の作成
 //引数：画角度の半分rad、(float)アスペクト比=幅÷高さ,視錐台近平面、,視錐台遠平面
     constexpr float fovAngleY = XMConvertToRadians(60.0f);
@@ -188,6 +211,7 @@ void PlayerCamera_Update(float elapsedTime)
     XMStoreFloat4x4(&g_CameraMatrix, mtrView);
     XMStoreFloat4x4(&g_CameraPerspectiveMatrix, mtxPerspective);
 }*/
+
 
 
 const DirectX::XMFLOAT3& PlayerCamera_GetPosition()
