@@ -29,6 +29,8 @@ cbuffer VS_CONSTANT_BUFFER2 : register(b2)
 struct VS_IN
 {
     float4 posL : POSITION0;
+    float3 normal : NORMAL0;
+    float4 color : COLOR0;
     float2 uv : TEXCOORD0;
 };
 

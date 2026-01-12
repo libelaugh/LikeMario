@@ -365,6 +365,7 @@ void ModelUnlitDraw(MODEL* model, const XMMATRIX& mtxWorld)
 
 	for (unsigned int m = 0; m < model->AiScene->mNumMeshes; m++)//mがメッシュ(モデルの部位)の番号
 	{
+		Shader3DUnlit_SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
 		// テクスチャの設定
 		aiString texture;
 		aiMaterial* aimaterial = model->AiScene->mMaterials[model->AiScene->mMeshes[m]->mMaterialIndex];

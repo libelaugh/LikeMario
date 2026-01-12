@@ -44,7 +44,7 @@ void Sky_Draw()
 {
 	Shader3DUnlit_Begin();
 
-	g_position.y = 0.0f;
+	//g_position.y = 0.0f;
 
 	ID3D11DeviceContext* ctx = Direct3D_GetContext();
 	ID3D11RasterizerState* prevState = nullptr;
