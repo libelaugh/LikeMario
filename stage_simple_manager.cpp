@@ -315,6 +315,7 @@ void StageSimpleManager_Draw()
 
 	//‹ó‚Ì•\Ž¦
 	Direct3D_SetDepthDepthWriteDisable();
+	Direct3D_SetDepthEnable(false);
 	Sky_Draw();
 	Direct3D_SetDepthEnable(true);
 
