@@ -12,7 +12,7 @@
 #include "gamepad.h"
 #include "key_logger.h"
 #include "sprite.h"
-#include "staga_system.h"
+#include "stage_registry.h"
 #include "texture.h"
 
 namespace
@@ -29,13 +29,15 @@ namespace
     constexpr float kIconSelectedSize = 210.0f;
     constexpr float kIconSpacing = 24.0f;
 
-    const wchar_t kTitleLogoPath[] = L"title_logo.png";
-    const wchar_t kStageIconPath[] = L"stage_icons.png";
+    const wchar_t kTitleLogoPath[] = L"texture/title_logo.png";
+    const wchar_t kStageIconPath[] = L"texture/stage_icons.png";
 
     int g_titleLogoTex = -1;
     int g_stageIconTex = -1;
     TitleState g_state = TitleState::Logo;
     int g_selectedStage = 0;
+
+    bool g_finished = false;
 
     bool g_prevPadA = false;
     bool g_prevPadB = false;
@@ -104,6 +106,7 @@ void Title_Initialize()
     g_prevPadB = false;
     g_prevStickLeft = false;
     g_prevStickRight = false;
+    g_finished = false;
 }
 
 void Title_Finalize()
@@ -148,7 +151,7 @@ void Title_Update(double elapsed_time)
 
     if (padATrigger || enterTrigger)
     {
-        StageSystem_RequestChange(static_cast<StageId>(g_selectedStage));
+        g_finished = true;
     }
 }
 
@@ -163,4 +166,14 @@ void Title_Draw()
     }
 
     DrawStageIcons();
+}
+
+bool Title_IsFinished()
+{
+    return g_finished;
+}
+
+StageId Title_GetSelectedStage()
+{
+    return static_cast<StageId>(g_selectedStage);
 }
