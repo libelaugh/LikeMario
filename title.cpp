@@ -29,8 +29,8 @@ namespace
     constexpr float kIconSelectedSize = 210.0f;
     constexpr float kIconSpacing = 24.0f;
 
-    const wchar_t kTitleLogoPath[] = L"texture/title_logo.png";
-    const wchar_t kStageIconPath[] = L"texture/stage_icons.png";
+    const wchar_t kTitleLogoPath[] = L"title_logo.png";
+    const wchar_t kStageIconPath[] = L"stage_icons.png";
 
     int g_titleLogoTex = -1;
     int g_stageIconTex = -1;
