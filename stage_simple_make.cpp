@@ -29,7 +29,7 @@ struct StageSimpleRidePlatform
     float deltaY;
     float deltaZ;
 };
-static bool StageSimple_CanRideBlock(const AABB& playerAabb, bool canRidePlatform, const StageBlock& block)
+static bool StageSimple_CanRideBlock(const AABB& playerAabb, bool canRidePlatform, const StageBlock& block, float rideUpEps)
 {
     constexpr float kGroundEps = 0.06f;
     const AABB& box = block.aabb;
@@ -37,7 +37,7 @@ static bool StageSimple_CanRideBlock(const AABB& playerAabb, bool canRidePlatfor
         playerAabb.max.z <= box.min.z || playerAabb.min.z >= box.max.z);
     const float dy = playerAabb.min.y - box.max.y;
 
-    return overlapXZ && dy >= -0.002f && dy <= kGroundEps && canRidePlatform;
+    return overlapXZ && dy >= -(0.002f + rideUpEps) && dy <= kGroundEps && canRidePlatform;
 }
 static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform* platforms, int platformCount)
 {
@@ -58,8 +58,8 @@ static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform* platfo
         {
             continue;
         }
-
-        if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *block))
+        const float rideUpEps = (platform.deltaY > 0.0f) ? platform.deltaY : 0.0f;
+        if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *block, rideUpEps))
         {
             DirectX::XMFLOAT3 pos = Player_GetPosition();
             pos.x += platform.deltaX;
@@ -97,7 +97,7 @@ void StageSimple_Update(double elapsedTime)
     aTime += static_cast<float>(elapsedTime);
 
     static float prevOffsetY1 = 0.0f;
-    const float offsetY1 = 5.0f * sinf(aTime);
+    const float offsetY1 = 3.0f * sinf(aTime);
     const float deltaY1 = offsetY1 - prevOffsetY1;
 
     static float prevOffsetX1 = 0.0f;
@@ -157,7 +157,7 @@ void StageSimple_Update(double elapsedTime)
             const XMFLOAT3& playerVel = Player_GetVelocity();
             const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
 
-            if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *cube81))
+            if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *cube81, 0.0f))
             {
                 if (!isOffsetZ7)
                 {
