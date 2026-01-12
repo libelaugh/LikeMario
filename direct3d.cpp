@@ -500,6 +500,7 @@ bool configureBackBuffer()
 	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthEnable);
 	
 	dsd.DepthEnable = TRUE;
+	dsd.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthWriteDisable);
 
