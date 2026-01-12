@@ -1,18 +1,22 @@
 /*==============================================================================
 
-　　  ステージsimple管理[stage_simple_manager.h]
+　　  ステージ管理[stage_system.h]
                                                          Author : Kouki Tanaka
                                                          Date   : 2026/01/12
 --------------------------------------------------------------------------------
 
 ==============================================================================*/
 
-#ifndef STAGE_SIMPLE_MANAGER_H
-#define STAGE_SIMPLE_MANAGER_H
+#ifndef STAGE_SYSTEM_H
+#define STAGE_SYSTEM_H
 
-void StageSimpleManager_Initialize();
-void StageSimpleManager_Finalize();
-void StageSimpleManager_Update(double elapsedTime);
-void StageSimpleManager_Draw();
+#include "stage_registry.h"
 
-#endif//STAGE_SIMPLE_MANAGER_H
+void StageSystem_Initialize(StageId first);
+void StageSystem_Finalize();
+void StageSystem_RequestChange(StageId next); // タイトルから呼ぶ
+void StageSystem_Update(double dt);
+void StageSystem_Draw();
+StageId StageSystem_GetCurrent();
+
+#endif//STAGE_SYSTEM_H
