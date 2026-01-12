@@ -15,6 +15,8 @@
 #include "stage_registry.h"
 #include "texture.h"
 
+static int space = -1;
+
 namespace
 {
     enum class TitleState
@@ -25,12 +27,29 @@ namespace
 
     constexpr int kStageIconCount = 4;
     constexpr float kStickThreshold = 0.5f;
-    constexpr float kIconBaseSize = 160.0f;
-    constexpr float kIconSelectedSize = 210.0f;
-    constexpr float kIconSpacing = 24.0f;
+    constexpr float kIconBaseSize = 230.0f;
+    constexpr float kIconSelectedSize = 320.0f;
+    constexpr float kIconSpacing = 100.0f;
+    static float angle{};
 
     const wchar_t kTitleLogoPath[] = L"title_logo.png";
     const wchar_t kStageIconPath[] = L"stage_icons.png";
+     
+
+    struct IconRect
+    {
+        int x;
+        int y;
+        int w;
+        int h;
+    };
+
+    constexpr IconRect kStageIconRects[kStageIconCount] = {
+        {1134, 546, 1700 - 1134, 1092 - 546},
+        {0, 546, 567 - 0, 1092 - 546},
+        {567, 0, 1134 - 567, 546 - 0},
+        {567, 546, 1134 - 567, 1092 - 546},
+    };
 
     int g_titleLogoTex = -1;
     int g_stageIconTex = -1;
@@ -78,20 +97,15 @@ namespace
         const float startX = (screenW - baseTotal) * 0.5f;
         const float baseY = screenH * 0.6f;
 
-        const int texW = (int)Texture_Width(g_stageIconTex);
-        const int texH = (int)Texture_Height(g_stageIconTex);
-        const int iconW = texW / kStageIconCount;
-        const int iconH = texH;
-
         for (int i = 0; i < kStageIconCount; ++i)
         {
             const bool selected = (i == g_selectedStage);
             const float drawSize = selected ? kIconSelectedSize : kIconBaseSize;
-            const float x = startX + i * (kIconBaseSize + kIconSpacing) + (kIconBaseSize - drawSize) * 0.5f;
-            const float y = baseY + (kIconBaseSize - drawSize) * 0.5f;
-            const int px = iconW * i;
-            const int py = 0;
-            Sprite_Draw04(g_stageIconTex, x, y, drawSize, drawSize, px, py, iconW, iconH);
+            const float offsetX = selected ? 40.0f : 0.0f;
+            const float x = startX + i * (kIconBaseSize + kIconSpacing) + (kIconBaseSize - drawSize) * 0.5f+100.0f+offsetX;
+            const float y = baseY + (kIconBaseSize - drawSize) * 0.5f + -40.0f;
+            const IconRect& rect = kStageIconRects[i];
+            Sprite_Draw(g_stageIconTex, x, y, drawSize, drawSize, rect.x, rect.y, rect.w, rect.h,angle);
         }
     }
 }
@@ -107,6 +121,8 @@ void Title_Initialize()
     g_prevStickLeft = false;
     g_prevStickRight = false;
     g_finished = false;
+
+    space = Texture_Load(L"space1.png");
 }
 
 void Title_Finalize()
@@ -115,7 +131,7 @@ void Title_Finalize()
 
 void Title_Update(double elapsed_time)
 {
-    (void)elapsed_time;
+    angle += 1.0f * (float)elapsed_time;
 
     GamepadState pad{};
     const bool padConnected = Gamepad_GetState(0, &pad);
@@ -164,7 +180,9 @@ void Title_Draw()
         DrawCenteredLogo();
         return;
     }
-
+    const float screenW = (float)Direct3D_GetBackBufferWidth();
+    const float screenH = (float)Direct3D_GetBackBufferHeight();
+    Sprite_Draw(space, 0, 0, screenW, screenH);
     DrawStageIcons();
 }
 
