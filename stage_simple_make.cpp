@@ -131,10 +131,15 @@ void StageSimple_Update(double elapsedTime)
     const float offsetX8 = 5.0f * sinf(aTime);
     const float deltaX8 = offsetX8 - prevOffsetX8;
 
-    static float startTimeY1 = 0.0f;
     static float prevAngleY1 = 0.0f;
     float aDeltaY1 = 0.0f;
-    float angleY1 = prevAngleY1;
+    float angleY1 = 0.4f * aTime;
+    static float prevAngleY2 = 0.0f;
+    float aDeltaY2 = 0.0f;
+    float angleY2 = 0.4f * aTime;
+    static float prevAngleY3 = 0.0f;
+    float aDeltaY3 = 0.0f;
+    float angleY3 = -0.4f * aTime;
     
 
     prevOffsetY1 = offsetY1;
@@ -194,10 +199,11 @@ void StageSimple_Update(double elapsedTime)
         const XMFLOAT3& pZ = Player_GetPosition();
         if (pZ.z > 180.0f) { HideStageBlockRuntime(81); }
 
-       // const float t = aTime - startTimeY1;
-            offsetZ7 = 0.8f * aTime;
-            aDeltaY1 = angleY1 - prevAngleY1;
-            prevAngleY1 = angleY1;
-            Stage01_AddObjectTransform(127, no, {0.0f,aDeltaY1,0.0f},no );
+            aDeltaY1 = angleY1 - prevAngleY1; prevAngleY1 = angleY1;
+            Stage01_AddObjectTransform(127, no, no, { 0.0f, aDeltaY1, 0.0f });
+            aDeltaY2 = angleY2 - prevAngleY2; prevAngleY2 = angleY2;
+            Stage01_AddObjectTransform(128, no, no, { 0.0f, aDeltaY2, 0.0f });
+            aDeltaY3 = angleY3 - prevAngleY3; prevAngleY3 = angleY3;
+            Stage01_AddObjectTransform(129, no, no, { 0.0f, aDeltaY3, 0.0f });
 
 }
