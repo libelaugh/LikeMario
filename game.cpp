@@ -10,6 +10,7 @@
 //ゲームを全て関数で動くようにする
 #include "game.h"
 #include"stage_simple_manager.h"
+#include"stage_magma_manager.h"
 
 void Game_Initialize()
 {
