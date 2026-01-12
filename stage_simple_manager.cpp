@@ -235,7 +235,6 @@ void StageSimpleManager_Update(double elapsedTime)
 		}
 	}
 
-	Sky_SetPosition(PlayerCamera_GetPosition());
 
 	SpriteAnim_Update(elapsedTime);
 
@@ -278,6 +277,8 @@ void StageSimpleManager_Draw()
 	XMMATRIX proj = g_isDebug ? XMLoadFloat4x4(&Camera_GetPerspectiveMatrix()) : XMLoadFloat4x4(&PlayerCamera_GetPerspectiveMatrix());
 	XMFLOAT3 camera_position = g_isDebug ? Camera_GetPosition() : PlayerCamera_GetPosition();
 
+	Sky_SetPosition(camera_position);
+
 	auto lv = LightCamera_GetViewMatrix();
 	auto lp = LightCamera_GetProjectionMatrix();
 
@@ -315,7 +316,6 @@ void StageSimpleManager_Draw()
 
 	//‹ó‚Ì•\Ž¦
 	Direct3D_SetDepthDepthWriteDisable();
-	Direct3D_SetDepthEnable(false);
 	Sky_Draw();
 	Direct3D_SetDepthEnable(true);
 
