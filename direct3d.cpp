@@ -450,7 +450,8 @@ bool configureBackBuffer()
 	g_pDeviceContext->OMSetBlendState(g_pBlendStateMultiply, blend_factor, 0xffffffff);
 
 
-	// 深度ステンシルステート設定
+	// 深度ステンシルステート設定1
+	/*
 	D3D11_DEPTH_STENCIL_DESC dsd = {};
 	dsd.DepthFunc = D3D11_COMPARISON_LESS;
 	dsd.StencilEnable = FALSE;
@@ -458,6 +459,7 @@ bool configureBackBuffer()
 	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
 
 	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthDisable);
+	*/
 
 	//dsd.DepthEnable = TRUE;
 	//dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
@@ -483,6 +485,23 @@ bool configureBackBuffer()
 	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthWriteDisable);
 
 	Direct3D_SetDepthEnable(true);*/
+
+	// 深度ステンシルステート設定2
+	D3D11_DEPTH_STENCIL_DESC dsd = {};
+	dsd.StencilEnable = FALSE;
+	dsd.DepthFunc = D3D11_COMPARISON_ALWAYS;
+	dsd.DepthEnable = FALSE;
+	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthDisable);
+	
+	dsd.DepthFunc = D3D11_COMPARISON_LESS;
+	dsd.DepthEnable = TRUE;
+	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthEnable);
+	
+	dsd.DepthEnable = TRUE;
+	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	g_pDevice->CreateDepthStencilState(&dsd, &g_pDepthStencilStateDepthWriteDisable);
 
 	//ラスタライザステート作成
 	D3D11_RASTERIZER_DESC rd = {};

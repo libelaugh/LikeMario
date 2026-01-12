@@ -34,6 +34,7 @@
 #include "imgui.h"
 #include"item.h"
 #include"stage_simple_make.h"
+#include"sky.h"
 #include <type_traits>
 #include <utility>
 #include <cmath>
@@ -117,7 +118,7 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	//Map_Initialize();
 	//Enemy_Initialize();
 	//Bullet_Initialize();
-	//Sky_Initialize();
+	Sky_Initialize();
 	//Billboard_Initialize();
 	//BulletHitEffect_Initialize();
 	testTex = Texture_Load(L"runningman001.png");
@@ -155,7 +156,7 @@ void StageSimpleManager_Finalize()
 		//Enemy_Finalize();
 		//Map_Finalize();
 		//Bullet_Finalize();
-		//Sky_Finalize();
+    Sky_Finalize();
 	Camera_Finalize();
 	//Billboard_Finalize();
 
@@ -234,7 +235,7 @@ void StageSimpleManager_Update(double elapsedTime)
 		}
 	}
 
-	//Sky_SetPosition(PlayerCamera_GetPosition());
+	Sky_SetPosition(PlayerCamera_GetPosition());
 
 	SpriteAnim_Update(elapsedTime);
 
@@ -313,9 +314,9 @@ void StageSimpleManager_Draw()
 	Sampler_SetFilterAnisotropic();
 
 	//空の表示
-	//Direct3D_SetDepthDepthWriteDisable();
-	//Sky_Draw();
-	//Direct3D_SetDepthEnable(true);
+	Direct3D_SetDepthDepthWriteDisable();
+	Sky_Draw();
+	Direct3D_SetDepthEnable(true);
 
 	//各種ライトの設定
 	float ambientColor = 0.8f;
