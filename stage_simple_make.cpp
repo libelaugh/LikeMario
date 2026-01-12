@@ -72,6 +72,17 @@ static bool StageSimple_ApplyRidePlatforms(const StageSimpleRidePlatform* platfo
 
     return false;
 }
+static void HideStageBlockRuntime(int index)
+{
+    StageBlock* block = Stage01_GetMutable(index);
+    if (!block) return;
+
+    block->positionOffset.y -= 10000.0f;
+    block->sizeOffset.x = -block->size.x;
+    block->sizeOffset.y = -block->size.y;
+    block->sizeOffset.z = -block->size.z;
+    Stage01_RebuildObject(index);
+}
 
 void StageSimple_Initialize()
 {
@@ -119,6 +130,11 @@ void StageSimple_Update(double elapsedTime)
     static float prevOffsetX8 = 0.0f;
     const float offsetX8 = 5.0f * sinf(aTime);
     const float deltaX8 = offsetX8 - prevOffsetX8;
+
+    static float startTimeY1 = 0.0f;
+    static float prevAngleY1 = 0.0f;
+    float aDeltaY1 = 0.0f;
+    float angleY1 = prevAngleY1;
     
 
     prevOffsetY1 = offsetY1;
@@ -175,4 +191,13 @@ void StageSimple_Update(double elapsedTime)
 
 
         Stage01_AddObjectTransform(81, { 0.0f, 0.0f, deltaZ7 }, no, no);
+        const XMFLOAT3& pZ = Player_GetPosition();
+        if (pZ.z > 180.0f) { HideStageBlockRuntime(81); }
+
+       // const float t = aTime - startTimeY1;
+            offsetZ7 = 0.8f * aTime;
+            aDeltaY1 = angleY1 - prevAngleY1;
+            prevAngleY1 = angleY1;
+            Stage01_AddObjectTransform(127, no, {0.0f,aDeltaY1,0.0f},no );
+
 }
