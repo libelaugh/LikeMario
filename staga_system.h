@@ -15,6 +15,8 @@
 void StageSystem_Initialize(StageId first);
 void StageSystem_Finalize();
 void StageSystem_RequestChange(StageId next); // ƒ^ƒCƒgƒ‹‚©‚çŒÄ‚Ô
+void StageSystem_RequestNext();
+void StageSystem_RequestPrev();
 void StageSystem_Update(double dt);
 void StageSystem_Draw();
 StageId StageSystem_GetCurrent();

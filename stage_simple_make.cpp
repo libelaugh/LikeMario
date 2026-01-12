@@ -8,6 +8,7 @@
 ==============================================================================*/
 
 #include "stage_simple_make.h"
+#include "stage_simple_manager.h"
 #include "stage01_manage.h"
 #include"player.h"
 #include"collision.h"
@@ -116,7 +117,8 @@ static void StageSimple_ResetRuntime()
 bool StageSimple_SetPlayerPositionAndLoadJson(const DirectX::XMFLOAT3& position, const char* jsonPath)
 {
     StageSimple_ResetRuntime();
-    const bool loaded = Stage01_LoadJson(jsonPath);
+    const char* loadPath = (jsonPath && jsonPath[0]) ? jsonPath : Stage01_GetCurrentJsonPath();
+    const bool loaded = Stage01_LoadJson(loadPath);
     Player_DebugTeleport(position, true);
     return loaded;
 }
@@ -151,7 +153,7 @@ void StageSimple_Update(double elapsedTime)
     const float deltaX6 = offsetX6 - g_prevOffsetX6;
     float deltaZ7 = 0.0f;
     float offsetZ7 = g_prevOffsetZ7;
-    const float offsetX7 = 0.1f * sinf(aTime*0.5f);
+    const float offsetX7 = 6.0f * sinf(aTime*0.7f);
     const float deltaX7 = offsetX7 - g_prevOffsetX7;
     const float offsetX8 = 5.0f * sinf(aTime);
     const float deltaX8 = offsetX8 - g_prevOffsetX8;
@@ -216,6 +218,7 @@ void StageSimple_Update(double elapsedTime)
 
         if(playerPos.y<-10.0f){
             StageSimple_ResetRuntime();
-            StageSimple_SetPlayerPositionAndLoadJson({ 0.0f, 5.0f, 2.5f }, "stage_simple.json");
+            const XMFLOAT3 spawnPos = StageSimpleManager_GetSpawnPosition();
+            StageSimple_SetPlayerPositionAndLoadJson(spawnPos, nullptr);
         }
 }

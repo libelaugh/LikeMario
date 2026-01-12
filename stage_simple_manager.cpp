@@ -49,7 +49,16 @@ static bool g_isDebug = false;
 
 static bool g_padDrivingPlayer = false;
 
-static const char* g_startStageJson = "stage_simple.json";
+static DirectX::XMFLOAT3 g_spawnPos = { 0.0f, 5.0f, 2.5f };
+static DirectX::XMFLOAT3 g_spawnFront = { 0.0f, 0.0f, 1.0f };
+static const char* g_stageJsonPath = "stage_simple.json";
+
+static void StageSimpleManager_SetStageInfo(const StageInfo& info)
+{
+	g_spawnPos = info.spawnPos;
+	g_spawnFront = info.spawnFront;
+	g_stageJsonPath = info.jsonPath;
+}
 
 namespace {
 	DirectX::XMFLOAT3 g_CubePos = { 0.0f, 0.0f, 0.0f };
@@ -88,10 +97,21 @@ namespace
 void mapRendering();
 void lightRendering();
 
-
-void StageSimpleManager_Initialize()
+DirectX::XMFLOAT3 StageSimpleManager_GetSpawnPosition()
 {
-	Player_Initialize({ 0.0f, 5.0f, 2.5f }, { 0,0,1 }); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
+	return g_spawnPos;
+}
+
+const char* StageSimpleManager_GetStageJsonPath()
+{
+	return g_stageJsonPath;
+}
+
+
+void StageSimpleManager_Initialize(const StageInfo& info)
+{
+	StageSimpleManager_SetStageInfo(info);
+	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
 	PlayerCamera_Initialize();
 	//Map_Initialize();
@@ -113,7 +133,7 @@ void StageSimpleManager_Initialize()
 
 
 
-	Stage01_Initialize(g_startStageJson);
+	Stage01_Initialize(g_stageJsonPath);
 
 	Item_Initialize();
 	const int coinModel = Item_LoadModel("model/coin/Coin.fbx", 0.4f, false);
@@ -121,6 +141,12 @@ void StageSimpleManager_Initialize()
 	Item_Add({ 3.0f, 1.5f, 1.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
+}
+
+void StageSimpleManager_ChangeStage(const StageInfo& info)
+{
+	StageSimpleManager_SetStageInfo(info);
+	StageSimple_SetPlayerPositionAndLoadJson(g_spawnPos, g_stageJsonPath);
 }
 
 void StageSimpleManager_Finalize()

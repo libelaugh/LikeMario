@@ -9,25 +9,24 @@
 
 //ゲームを全て関数で動くようにする
 #include "game.h"
-#include"stage_simple_manager.h"
-#include"stage_magma_manager.h"
+#include"staga_system.h"
 
 void Game_Initialize()
 {
-	StageSimpleManager_Initialize();
+	StageSystem_Initialize(StageId::Stage1);
 }
 
 void Game_Finalize()
 {
-	StageSimpleManager_Finalize();
+	StageSystem_Finalize();
 }
 
 void Game_Update(float elapsedTime)
 {
-	StageSimpleManager_Update(elapsedTime);
+	StageSystem_Update(elapsedTime);
 }
 
 void Game_Draw()
 {
-	StageSimpleManager_Draw();
+	StageSystem_Draw();
 }
