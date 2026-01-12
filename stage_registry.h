@@ -14,10 +14,10 @@
 
 enum class StageId : int
 {
-    Stage1 = 0,
-    Stage2,
-    Stage3,
-    Stage4,
+    StageSimple = 0,
+    StageMagma,
+    StageDisapear,
+    StageInvisible,
     Count
 };
 
@@ -33,10 +33,10 @@ inline const StageInfo& GetStageInfo(StageId id)
 {
     static const StageInfo kStages[] =
     {
-        { "Stage 1", "stage_simple.json", {0,5,2.5f}, {0,0,1} },
-        { "Stage 2", "stage02.json",      {0,5,2.5f}, {0,0,1} },
-        { "Stage 3", "stage03.json",      {0,5,2.5f}, {0,0,1} },
-        { "Stage 4", "stage04.json",      {0,5,2.5f}, {0,0,1} },
+        { "Stage Simple", "stage_simple.json", {0,5,2.5f}, {0,0,1} },
+        { "Stage Magma", "stage_magma.json",      {0,5,2.5f}, {0,0,1} },
+        { "Stage Disapear", "stage_disapear.json",      {0,5,2.5f}, {0,0,1} },
+        { "Stage Invisible", "stage_invisible.json",      {0,5,2.5f}, {0,0,1} },
     };
     return kStages[(int)id];
 }

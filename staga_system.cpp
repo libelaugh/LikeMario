@@ -2,9 +2,9 @@
 #include "stage_simple_manager.h"
 #include "stage_magma_manager.h"
 
-static StageId g_cur = StageId::Stage1;
+static StageId g_cur = StageId::StageSimple;
 static bool    g_hasReq = false;
-static StageId g_req = StageId::Stage1;
+static StageId g_req = StageId::StageSimple;
 
 static bool StageSystem_IsValidStage(StageId id)
 {
@@ -15,7 +15,7 @@ static bool StageSystem_IsValidStage(StageId id)
 void StageSystem_Initialize(StageId first)
 {
     if (!StageSystem_IsValidStage(first))
-        first = StageId::Stage1;
+        first = StageId::StageSimple;
     g_cur = first;
     g_req = first;
     g_hasReq = false;
