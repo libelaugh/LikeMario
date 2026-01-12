@@ -108,19 +108,24 @@ void StageSimple_Update(double elapsedTime)
     const float offsetX6 = 5.0f * sinf(aTime);
     const float deltaX6 = offsetX6 - prevOffsetX6;
 
-    static bool  isOffsetZ7 = false;
     static float startTimeZ7 = 0.0f;
+    static bool  isOffsetZ7 = false;
     static float prevOffsetZ7 = 0.0f;
     float deltaZ7 = 0.0f;
     float offsetZ7 = prevOffsetZ7;
-
+    static float prevOffsetX7 = 0.0f;
+    const float offsetX7 = 0.1f * sinf(aTime*0.5f);
+    const float deltaX7 = offsetX7 - prevOffsetX7;
+    static float prevOffsetX8 = 0.0f;
+    const float offsetX8 = 5.0f * sinf(aTime);
+    const float deltaX8 = offsetX8 - prevOffsetX8;
     
 
     prevOffsetY1 = offsetY1;
     prevOffsetX1 = offsetX1;prevOffsetX2 = offsetX2;prevOffsetX3 = offsetX3;
     prevOffsetX4 = offsetX4;prevOffsetX5 = offsetX5;prevOffsetX6 = offsetX6;
-    prevOffsetZ7 = offsetZ7;
-
+    prevOffsetZ7 = offsetZ7; prevOffsetX8 = offsetX8;
+    //sinâùïú
     Stage01_AddObjectTransform(72, { 0.0f, deltaY1, 0.0f }, no, no);
     {
         Stage01_AddObjectTransform(74, { deltaX1, 0.0f, 0.0f }, no, no);
@@ -130,30 +135,34 @@ void StageSimple_Update(double elapsedTime)
         Stage01_AddObjectTransform(78, { deltaX5, 0.0f, 0.0f }, no, no);
         Stage01_AddObjectTransform(79, { deltaX6, 0.0f, 0.0f }, no, no);
     }
+    Stage01_AddObjectTransform(83, { deltaX7, 0.0f, 0.0f }, no, no);
+    Stage01_AddObjectTransform(124, { deltaX8, 0.0f, 0.0f }, no, no);
 
-    //XMFLOAT3 pos = Player_GetPosition(); AABB player = Player_ConvertPositionToAABB(XMLoadFloat3(&pos));
-    const StageBlock* cube81 = Stage01_Get(81);
-    if (cube81)
-    {
-        const AABB playerAabb = Player_GetAABB();
-        const XMFLOAT3& playerVel = Player_GetVelocity();
-        const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
-
-        if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *cube81))
+    {//íºêi
+        const StageBlock* cube81 = Stage01_Get(81);
+        if (cube81)
         {
-            if (!isOffsetZ7)
+            const AABB playerAabb = Player_GetAABB();
+            const XMFLOAT3& playerVel = Player_GetVelocity();
+            const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
+
+            if (StageSimple_CanRideBlock(playerAabb, canRidePlatform, *cube81))
             {
-                startTimeZ7 = aTime;
-                prevOffsetZ7 = 0.0f;
+                if (!isOffsetZ7)
+                {
+                    startTimeZ7 = aTime;
+                    prevOffsetZ7 = 0.0f;
+                    isOffsetZ7 = true;
+                }
             }
         }
+        if (isOffsetZ7) {
+            const float t = aTime - startTimeZ7;
+            offsetZ7 = 0.8f * t;
+            deltaZ7 = offsetZ7 - prevOffsetZ7;
+        }
+        prevOffsetZ7 = offsetZ7;
     }
-    if (isOffsetZ7) {
-        const float t = aTime - startTimeZ7;
-        offsetZ7 = 0.5f * t;
-        deltaZ7 = offsetZ7 - prevOffsetZ7;
-    }
-    prevOffsetZ7 = offsetZ7;
     
 
         //Å¶è„â∫ç∂âEÇ∑ÇÈCubeÇ…ÇÕìoò^ïKê{
@@ -161,7 +170,7 @@ void StageSimple_Update(double elapsedTime)
         { 72, 0.0f, deltaY1, 0.0f },
         { 74, deltaX1, 0.0f, 0.0f },{ 75, deltaX2, 0.0f, 0.0f },{ 76, deltaX3, 0.0f, 0.0f },
         { 77, deltaX4, 0.0f, 0.0f }, { 78, deltaX5, 0.0f, 0.0f }, { 79, deltaX6, 0.0f, 0.0f },
-        { 81, 0.0f, 0.0f, deltaZ7 }, };
+        { 81, 0.0f, 0.0f, deltaZ7 }, { 83, deltaX7, 0.0f, 0.0f },{ 124, deltaX8, 0.0f, 0.0f }, };
         StageSimple_ApplyRidePlatforms(ridePlatforms, sizeof(ridePlatforms) / sizeof(ridePlatforms[0]));
 
 
