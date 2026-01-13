@@ -11,24 +11,18 @@
 #include "stage01_manage.h"
 #include"player.h"
 #include"collision.h"
-#include"debug_text.h"
 #include<DirectXMath.h>
 #include <cmath>
 
 using namespace DirectX;
 
-hal::DebugText* g_titleText = nullptr;
 static XMFLOAT3 no{ 0.0f,0.0f,0.0f };
 static float aTime = 0.0f;
 
-static constexpr float kShrinkDuration = 1.0f;   // 1ïbÇ≈èkÇﬁ
-static constexpr float kMinSize = 0.02f;         // 0Ç…ÇµÇ»Ç¢ÅiïâÉXÉPÅ[Éãñhé~Åj
-
-static bool  g_shrinking1 = false;
-static float g_startTime1 = 0.0f;
-static XMFLOAT3 g_prevTargetSizeOffset1{ 0,0,0 };
-static bool  g_hidden1 = false;
-
+static float g_startTimeXZ1 = 0.0f;
+static bool  g_isOffsetXZ1 = false;
+static float g_prevOffsetX1 = 0.0f;
+static float g_prevOffsetZ1 = 0.0f;
 
 
 static void StageDisapear_ResetRuntime();
@@ -99,10 +93,8 @@ static void HideStageBlockRuntime(int index)
 static void StageDisapear_ResetRuntime()
 {
     aTime = 0.0f;
-    g_shrinking1 = false;
-    g_startTime1 = 0.0f;
-    g_prevTargetSizeOffset1 = { 0,0,0 };
-    g_hidden1 = false;
+    g_prevOffsetX1 = 0.0f;
+    g_prevOffsetZ1 = 0.0f;
 }
 bool StageDisapear_SetPlayerPositionAndLoadJson(const DirectX::XMFLOAT3& position, const char* jsonPath)
 {
@@ -111,22 +103,6 @@ bool StageDisapear_SetPlayerPositionAndLoadJson(const DirectX::XMFLOAT3& positio
     const bool loaded = Stage01_LoadJson(loadPath);
     Player_DebugTeleport(position, true);
     return loaded;
-}
-static int FindRiddenBlockIndex()
-{
-    const AABB playerAabb = Player_GetAABB();
-    const XMFLOAT3& playerVel = Player_GetVelocity();
-    const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
-
-    const int n = Stage01_GetCount();
-    for (int i = 0; i < n; ++i)
-    {
-        const StageBlock* b = Stage01_Get(i);
-        if (!b) continue;
-        if (StageDisapear_CanRideBlock(playerAabb, canRidePlatform, *b, 0.0f))
-            return i;
-    }
-    return -1;
 }
 
 void StageDisapear_Initialize()
@@ -139,59 +115,45 @@ void StageDisapear_Finalize()
 void StageDisapear_Update(double elapsedTime)
 {
     aTime += static_cast<float>(elapsedTime);
+    const XMFLOAT3& playerPos = Player_GetPosition();
 
-    const StageBlock* cube1 = Stage01_Get(1);
+    float deltaX1 = 0.0f; float offsetX1 = g_prevOffsetX1;
+    float deltaZ1 = 0.0f; float offsetZ1 = g_prevOffsetZ1;
 
-    static int g_targetIndex = -1;
-
-    const int rideIndex = FindRiddenBlockIndex();
-    if (rideIndex >= 0 && !g_hidden1)
-    {
-        if (!g_shrinking1)
+    {//1
+        const StageBlock* cube1 = Stage01_Get(1);
+        if (cube1)
         {
-            g_shrinking1 = true;
-            g_targetIndex = rideIndex;
-            g_startTime1 = aTime;
-            g_prevTargetSizeOffset1 = { 0,0,0 };
-        }
-    }
+            const AABB playerAabb = Player_GetAABB();
+            const XMFLOAT3& playerVel = Player_GetVelocity();
+            const bool canRidePlatform = Player_IsGrounded() && (playerVel.y <= 0.01f);
 
-    if (g_shrinking1 && g_targetIndex >= 0)
-    {
-        const StageBlock* cube = Stage01_Get(g_targetIndex);
-        if (cube)
-        {
-            const float t = aTime - g_startTime1;
-            float u = (kShrinkDuration > 0.0f) ? (t / kShrinkDuration) : 1.0f;
-            if (u < 0.0f) u = 0.0f;
-            if (u > 1.0f) u = 1.0f;
-
-            XMFLOAT3 targetOffset{
-                (kMinSize - cube->size.x) * u,
-                (kMinSize - cube->size.y) * u,
-                (kMinSize - cube->size.z) * u
-            };
-
-            XMFLOAT3 delta{
-                targetOffset.x - g_prevTargetSizeOffset1.x,
-                targetOffset.y - g_prevTargetSizeOffset1.y,
-                targetOffset.z - g_prevTargetSizeOffset1.z
-            };
-
-            Stage01_AddObjectTransform(g_targetIndex, no, delta, no);
-            g_titleText->SetText("Transform called!");
-            g_titleText->Draw();
-            g_prevTargetSizeOffset1 = targetOffset;
-
-            if (u >= 1.0f)
+            if (StageDisapear_CanRideBlock(playerAabb, canRidePlatform, *cube1, 0.0f))
             {
-                HideStageBlockRuntime(g_targetIndex);
-                g_hidden1 = true;
-                g_shrinking1 = false;
-                g_targetIndex = -1;
+                if (!g_isOffsetXZ1)
+                {
+                    g_startTimeXZ1 = aTime;
+                    g_prevOffsetX1 = 0.0f;
+                    g_prevOffsetZ1 = 0.0f;
+                    g_isOffsetXZ1 = true;
+                }
             }
         }
-    }
+        if (g_isOffsetXZ1) {
+            const float t = aTime - g_startTimeXZ1;
+            offsetX1 = -3.1f * t;
+            offsetZ1 = -0.1f * t;
+            deltaX1 = offsetX1 - g_prevOffsetX1;
+            deltaZ1 = offsetZ1 - g_prevOffsetZ1;
+        }
+        g_prevOffsetX1 = offsetX1;
+        g_prevOffsetZ1 = offsetZ1;
+
+    
+
+
+    Stage01_AddObjectTransform(1, no, { deltaX1,0.0f, deltaZ1 }, no);
+
 
 
 
