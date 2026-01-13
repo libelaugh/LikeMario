@@ -13,7 +13,7 @@
 #include "stage_registry.h"
 #include <DirectXMath.h>
 
-void StageSimpleManager_Initialize();
+//void StageSimpleManager_Initialize();
 void StageSimpleManager_Initialize(const StageInfo& info);
 void StageSimpleManager_ChangeStage(const StageInfo& info);
 void StageSimpleManager_Finalize();

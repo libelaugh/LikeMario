@@ -42,7 +42,7 @@
 
 using namespace DirectX;
 
-int testTex = -1;
+static int testTex = -1;
 static int g_animId = -1;
 static int g_animPlayId = -1;
 
@@ -95,8 +95,64 @@ namespace
 }
 
 
-void mapRendering();
-void lightRendering();
+static void mapRendering() {
+	// レンダーターゲットをテクスチャへ
+	Direct3D_SetOffscreen();
+	Direct3D_ClearOffscreen();
+
+	// ライトカメラ（行列）の設定
+	XMFLOAT4X4 mtxView = LightCamera_GetViewMatrix();
+	XMFLOAT4X4 mtxProj = LightCamera_GetProjectionMatrix();
+	XMMATRIX view = XMLoadFloat4x4(&mtxView);
+	XMMATRIX proj = XMLoadFloat4x4(&mtxProj);
+
+	// カメラに関する行列をシェーダーに設定する
+	Camera_SetMatrix(view, proj);
+
+	// テクスチャーサンプラーの設定
+	Sampler_SetFilterAnisotropic();
+
+	// マップ用ライト
+// ※ディレクショナルライトの色を真っ黒にしてしまって、アンビエントライトのみにするか
+//  ディレクショナルライトを真下に向けるか、ライティングはゲームそのままにするか
+	Light_SetAmbient({ 1.0f, 1.0f, 1.0f });
+	Light_SetDirectionalWorld({ 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f, 0.0f, 0.0f });
+	//Light_SetLimLight({ 0.0f, 0.0f, 0.0f }, 0.0f);
+
+	// 深度有効
+	Direct3D_SetDepthEnable(true);
+
+
+	//Enemy_Draw();
+	Player_Draw();
+	//Map_Draw();
+}
+
+static void lightRendering() {
+	// レンダーターゲットをテクスチャへ
+	Direct3D_SetShadowDepth();
+	Direct3D_ClearShadowDepth();
+
+	// ライトカメラ（行列）の設定
+	XMFLOAT4X4 mtxView = LightCamera_GetViewMatrix();
+	XMFLOAT4X4 mtxProj = LightCamera_GetProjectionMatrix();
+	XMMATRIX view = XMLoadFloat4x4(&mtxView);
+	XMMATRIX proj = XMLoadFloat4x4(&mtxProj);
+
+	// カメラに関する行列をシェーダーに設定する
+	Camera_SetMatrix(view, proj);
+
+	ShaderDepth_SetViewMatrix(view);
+	ShaderDepth_SetProjectionMatrix(proj);
+
+	// 深度有効
+	Direct3D_SetDepthEnable(true);
+
+	//キャスト(影を落とすオブジェクト)
+	//Enemy_DepthDraw();
+	Player_DepthDraw();
+	//Map_Draw();
+}
 
 DirectX::XMFLOAT3 StageSimpleManager_GetSpawnPosition()
 {
@@ -385,61 +441,3 @@ void StageSimpleManager_Draw()
 }
 
 
-void mapRendering() {
-	// レンダーターゲットをテクスチャへ
-	Direct3D_SetOffscreen();
-	Direct3D_ClearOffscreen();
-
-	// ライトカメラ（行列）の設定
-	XMFLOAT4X4 mtxView = LightCamera_GetViewMatrix();
-	XMFLOAT4X4 mtxProj = LightCamera_GetProjectionMatrix();
-	XMMATRIX view = XMLoadFloat4x4(&mtxView);
-	XMMATRIX proj = XMLoadFloat4x4(&mtxProj);
-
-	// カメラに関する行列をシェーダーに設定する
-	Camera_SetMatrix(view, proj);
-
-	// テクスチャーサンプラーの設定
-	Sampler_SetFilterAnisotropic();
-
-	// マップ用ライト
-// ※ディレクショナルライトの色を真っ黒にしてしまって、アンビエントライトのみにするか
-//  ディレクショナルライトを真下に向けるか、ライティングはゲームそのままにするか
-	Light_SetAmbient({ 1.0f, 1.0f, 1.0f });
-	Light_SetDirectionalWorld({ 0.0f, 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f, 0.0f, 0.0f });
-	//Light_SetLimLight({ 0.0f, 0.0f, 0.0f }, 0.0f);
-
-	// 深度有効
-	Direct3D_SetDepthEnable(true);
-
-
-	//Enemy_Draw();
-	Player_Draw();
-	//Map_Draw();
-}
-
-void lightRendering() {
-	// レンダーターゲットをテクスチャへ
-	Direct3D_SetShadowDepth();
-	Direct3D_ClearShadowDepth();
-
-	// ライトカメラ（行列）の設定
-	XMFLOAT4X4 mtxView = LightCamera_GetViewMatrix();
-	XMFLOAT4X4 mtxProj = LightCamera_GetProjectionMatrix();
-	XMMATRIX view = XMLoadFloat4x4(&mtxView);
-	XMMATRIX proj = XMLoadFloat4x4(&mtxProj);
-
-	// カメラに関する行列をシェーダーに設定する
-	Camera_SetMatrix(view, proj);
-
-	ShaderDepth_SetViewMatrix(view);
-	ShaderDepth_SetProjectionMatrix(proj);
-
-	// 深度有効
-	Direct3D_SetDepthEnable(true);
-
-	//キャスト(影を落とすオブジェクト)
-	//Enemy_DepthDraw();
-	Player_DepthDraw();
-	//Map_Draw();
-}
