@@ -130,16 +130,32 @@ int LoadAudio(const char *FileName)
 }
 
 
-
-
 void UnloadAudio(int Index)
+{
+if (Index < 0 || Index >= AUDIO_MAX)
+{
+	return;
+}
+
+if (g_Audio[Index].SourceVoice != nullptr)
+{
+	g_Audio[Index].SourceVoice->Stop();
+	g_Audio[Index].SourceVoice->DestroyVoice();
+	g_Audio[Index].SourceVoice = nullptr;
+}
+delete[] g_Audio[Index].SoundData;
+g_Audio[Index].SoundData = nullptr;
+g_Audio[Index].Length = 0;
+g_Audio[Index].PlayLength = 0;
+}
+/*void UnloadAudio(int Index)
 {
 	g_Audio[Index].SourceVoice->Stop();
 	g_Audio[Index].SourceVoice->DestroyVoice();
 
 	delete[] g_Audio[Index].SoundData;
 	g_Audio[Index].SoundData = nullptr;
-}
+}*/
 
 
 
@@ -147,6 +163,15 @@ void UnloadAudio(int Index)
 
 void PlayAudio(int Index, bool Loop)
 {
+	if (Index < 0 || Index >= AUDIO_MAX)
+      {
+     return;
+     }
+     
+     if (g_Audio[Index].SourceVoice == nullptr || g_Audio[Index].SoundData == nullptr)
+      {
+     return;
+     }
 	g_Audio[Index].SourceVoice->Stop();
 	g_Audio[Index].SourceVoice->FlushSourceBuffers();
 
