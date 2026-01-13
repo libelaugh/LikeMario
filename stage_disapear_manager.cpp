@@ -36,12 +36,15 @@
 #include"item.h"
 #include"sky.h"
 #include "goal.h"
+#include"Audio.h"
 #include <type_traits>
 #include <utility>
 #include <cmath>
 #include<DirectXMath.h>
 
 using namespace DirectX;
+
+static int disBgm = -1;
 
 static int testTex = -1;
 static int g_animId = -1;
@@ -170,6 +173,7 @@ const char* StageDisapearManager_GetStageJsonPath()
 
 void StageDisapearManager_Initialize(const StageInfo& info)
 {
+	LoadAudio("title.wav");
 	StageDisapearManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
@@ -195,7 +199,7 @@ void StageDisapearManager_Initialize(const StageInfo& info)
 
 	Stage01_Initialize(g_stageJsonPath);
 	Goal_Init();
-	Goal_SetPosition({ 0.0f, 22.0f, 0.0f });
+	Goal_SetPosition({ 0.0f, 5.0f,15.0f });
 
 	/*Item_Initialize();
 	const int coinModel = Item_LoadModel("model/coin/Coin.fbx", 0.4f, false);
@@ -204,6 +208,8 @@ void StageDisapearManager_Initialize(const StageInfo& info)
 	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
 	*/
+
+	PlayAudio(disBgm);
 }
 
 void StageDisapearManager_ChangeStage(const StageInfo& info)
@@ -214,6 +220,7 @@ void StageDisapearManager_ChangeStage(const StageInfo& info)
 
 void StageDisapearManager_Finalize()
 {
+	UnloadAudio(disBgm);
 	Goal_Uninit();
 	//BulletHitEffect_Finalize();
 		//Enemy_Finalize();

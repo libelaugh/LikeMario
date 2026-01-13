@@ -35,12 +35,15 @@
 #include"item.h"
 #include"sky.h"
 #include"goal.h"
+#include"Audio.h"
 #include <type_traits>
 #include <utility>
 #include <cmath>
 #include<DirectXMath.h>
 
 using namespace DirectX;
+
+static int magmaBgm = -1;
 
 static int testTex = -1;
 static int g_animId = -1;
@@ -192,6 +195,7 @@ float StageMagmaManager_GetMagmaBaseY()
 
 void StageMagmaManager_Initialize(const StageInfo& info)
 {
+	LoadAudio("magma.wav");
 	StageMagmaManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
@@ -215,7 +219,9 @@ void StageMagmaManager_Initialize(const StageInfo& info)
 
 	Stage01_Initialize(g_stageJsonPath);
 	Goal_Init();
-	Goal_SetPosition({ 0.0f, 2.0f, -6.0f });
+	Goal_SetPosition({ 6.0f, 22.0f, 42.0f });
+
+	PlayAudio(magmaBgm);
 }
 
 void StageMagmaManager_ChangeStage(const StageInfo& info)
@@ -226,6 +232,7 @@ void StageMagmaManager_ChangeStage(const StageInfo& info)
 
 void StageMagmaManager_Finalize()
 {
+	UnloadAudio(magmaBgm);
 	Goal_Uninit();
 	//BulletHitEffect_Finalize();
 		//Enemy_Finalize();

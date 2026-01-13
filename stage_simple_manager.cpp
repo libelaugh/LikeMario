@@ -8,6 +8,7 @@
 ==============================================================================*/
 
 #include "stage_simple_manager.h"
+#include"stage_simple_make.h"
 #include"direct3d.h"
 #include"texture.h"
 #include"camera.h"
@@ -33,14 +34,17 @@
 #include "imgui_manager.h"
 #include "imgui.h"
 #include"item.h"
-#include"stage_simple_make.h"
 #include"sky.h"
+#include "goal.h"
+#include"Audio.h"
 #include <type_traits>
 #include <utility>
 #include <cmath>
 #include<DirectXMath.h>
 
 using namespace DirectX;
+
+static int simpleBgm = -1;
 
 static int testTex = -1;
 static int g_animId = -1;
@@ -53,6 +57,8 @@ static bool g_padDrivingPlayer = false;
 static DirectX::XMFLOAT3 g_spawnPos = { 0.0f, 5.0f, 2.5f };
 static DirectX::XMFLOAT3 g_spawnFront = { 0.0f, 0.0f, 1.0f };
 static const char* g_stageJsonPath = "stage_simple.json";
+
+static GoalState g_goalSimple = GoalState::Active;
 
 static void StageSimpleManager_SetStageInfo(const StageInfo& info)
 {
@@ -167,6 +173,7 @@ const char* StageSimpleManager_GetStageJsonPath()
 
 void StageSimpleManager_Initialize(const StageInfo& info)
 {
+	LoadAudio("simple.wav");
 	StageSimpleManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
@@ -187,17 +194,21 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	//Enemy_Create({ 1.0f,5.0f,1.0f });
 
 	g_isDebug = false;
-
+	g_goalSimple = GoalState::Active;
 
 
 	Stage01_Initialize(g_stageJsonPath);
+	Goal_Init();
+	Goal_SetPosition({ -30.0f, 15.0f, 187.0f });
 
-	Item_Initialize();
+	/*Item_Initialize();
 	const int coinModel = Item_LoadModel("model/coin/Coin.fbx", 0.4f, false);
 	const int musicNoteModel = Item_LoadModel("model/musicNote/Music Note.fbx", 0.01f, false);
 	Item_Add({ 3.0f, 1.5f, 1.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
+	*/
+	PlayAudio(simpleBgm);
 }
 
 void StageSimpleManager_ChangeStage(const StageInfo& info)
@@ -208,6 +219,8 @@ void StageSimpleManager_ChangeStage(const StageInfo& info)
 
 void StageSimpleManager_Finalize()
 {
+	UnloadAudio(simpleBgm);
+	Goal_Uninit();
 	//BulletHitEffect_Finalize();
 		//Enemy_Finalize();
 		//Map_Finalize();
@@ -233,21 +246,27 @@ void StageSimpleManager_Update(double elapsedTime)
 	//case WM_MOUSEWHEEL: Camera_OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam)); break;
 
 	// Gamepad input (XInput)
+	 // すでにゴール演出中なら、ステージ/プレイヤー更新を止めて Goal だけ動かす
+	{
+		const GoalState gs = Goal_GetState();
+		if (gs == GoalState::Clear || gs == GoalState::WaitInput)
+		{
+			// パッドでPlayer overrideしてたら解除（これしないと入力が残る）
+			if (g_padDrivingPlayer)
+			{
+				Player_SetInputOverride(false, nullptr);
+				g_padDrivingPlayer = false;
+			}
+
+			Goal_Update(elapsedTime);
+			g_goalSimple = Goal_GetState();
+			return;
+		}
+	}
 
 	GamepadState pad{};
 	bool ok = Gamepad_GetState(0, &pad);
 
-	/*static float logT = 0.0f;
-	logT += elapsedTime;
-	if (logT > 0.5f)
-	{
-		logT = 0.0f;
-		char buf[256];
-		sprintf_s(buf, "pad ok=%d lx=%.3f ly=%.3f  a=%d b=%d x=%d y=%d\n",
-			ok ? 1 : 0, pad.lx, pad.ly,
-			pad.a ? 1 : 0, pad.b ? 1 : 0, pad.x ? 1 : 0, pad.y ? 1 : 0);
-		OutputDebugStringA(buf);
-	}*/
 	bool padConnected = ok && pad.connected;
 
 	if (padConnected)
@@ -305,13 +324,20 @@ void StageSimpleManager_Update(double elapsedTime)
 	PlayerCamera_Update(elapsedTime);
 
 	Item_Update();
+
+	Goal_Update(elapsedTime);
+	g_goalSimple = Goal_GetState();
 }
 
 void StageSimpleManager_Draw()
 {
-	ID3D11DeviceContext* ctx = Direct3D_GetContext();
-	float bf[4] = {};
-	ctx->OMSetBlendState(nullptr, bf, 0xffffffff); // ← 不透明(ブレンドOFF)
+	// ゴール演出中はステージを描かず、クリアUIだけ表示
+	if (g_goalSimple == GoalState::Clear || g_goalSimple == GoalState::WaitInput)
+	{
+		Goal_DrawUI();
+		return;
+	}
+
 
 	mapRendering();
 	lightRendering();
@@ -418,7 +444,7 @@ void StageSimpleManager_Draw()
 
 	//Enemy_Draw();
 	Player_Draw();
-
+	Goal_Draw3D();
 	//Map_Draw();
 
 	//Bullet_Draw();
