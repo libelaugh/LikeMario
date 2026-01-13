@@ -1,13 +1,14 @@
 /*==============================================================================
 
-　　  ステージmagma管理[stage_magma_manager.h]
+　　  ステージdisapear管理[stage_disapear_manager.h]
                                                          Author : Kouki Tanaka
-                                                         Date   : 2026/01/12
+                                                         Date   : 2026/01/13
 --------------------------------------------------------------------------------
 
 ==============================================================================*/
-#include "stage_magma_manager.h"
-#include"stage_magma_make.h"
+
+#include "stage_disapear_manager.h"
+#include"stage_disapear_make.h"
 #include"direct3d.h"
 #include"texture.h"
 #include"camera.h"
@@ -34,7 +35,7 @@
 #include "imgui.h"
 #include"item.h"
 #include"sky.h"
-#include"goal.h"
+#include "goal.h"
 #include <type_traits>
 #include <utility>
 #include <cmath>
@@ -50,16 +51,13 @@ static bool g_isDebug = false;
 
 static bool g_padDrivingPlayer = false;
 
-static DirectX::XMFLOAT3 g_spawnPos = { 0,5,-9 };
-static DirectX::XMFLOAT3 g_spawnFront = {};
-static const char* g_stageJsonPath = "stage_magma.json";
+static DirectX::XMFLOAT3 g_spawnPos = { 0.0f, 5.0f, 2.5f };
+static DirectX::XMFLOAT3 g_spawnFront = { 0.0f, 0.0f, 1.0f };
+static const char* g_stageJsonPath = "stage_disapear.json";
 
-static constexpr float kMagmaBaseY = -7.0f;
-static float meshFieldPosY = kMagmaBaseY;
+static GoalState g_goalSimple = GoalState::Active;
 
-static GoalState g_goalMagma= GoalState::Active;
-
-static void StageMagmaManager_SetStageInfo(const StageInfo& info)
+static void StageDisapearManager_SetStageInfo(const StageInfo& info)
 {
 	g_spawnPos = info.spawnPos;
 	g_spawnFront = info.spawnFront;
@@ -98,7 +96,6 @@ namespace
 	inline void SetSpin(PlayerInput& in, bool  v) { if constexpr (has_spin<PlayerInput>::value)  in.spin = v; }
 	inline void SetCrouch(PlayerInput& in, bool v) { if constexpr (has_crouch<PlayerInput>::value) in.crouch = v; }
 }
-
 
 
 static void mapRendering() {
@@ -160,39 +157,20 @@ static void lightRendering() {
 	//Map_Draw();
 }
 
-DirectX::XMFLOAT3 StageMagmaManager_GetSpawnPosition()
+DirectX::XMFLOAT3 StageDisapearManager_GetSpawnPosition()
 {
 	return g_spawnPos;
 }
 
-const char* StageMagmaManager_GetStageJsonPath()
+const char* StageDisapearManager_GetStageJsonPath()
 {
 	return g_stageJsonPath;
 }
 
-float StageMagmaManager_GetMagmaY()
+
+void StageDisapearManager_Initialize(const StageInfo& info)
 {
-	return meshFieldPosY;
-}
-
-void StageMagmaManager_AddMagmaY(float a)
-{
-	meshFieldPosY += a;
-}
-
-void StageMagmaManager_SetMagmaY(float y){
-	meshFieldPosY = y;
-	}
-
-float StageMagmaManager_GetMagmaBaseY()
- {
-	return kMagmaBaseY;
-	}
-
-
-void StageMagmaManager_Initialize(const StageInfo& info)
-{
-	StageMagmaManager_SetStageInfo(info);
+	StageDisapearManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
 	PlayerCamera_Initialize();
@@ -212,19 +190,29 @@ void StageMagmaManager_Initialize(const StageInfo& info)
 	//Enemy_Create({ 1.0f,5.0f,1.0f });
 
 	g_isDebug = false;
+	g_goalSimple = GoalState::Active;
+
 
 	Stage01_Initialize(g_stageJsonPath);
 	Goal_Init();
-	Goal_SetPosition({ 0.0f, 2.0f, -6.0f });
+	Goal_SetPosition({ 0.0f, 22.0f, 0.0f });
+
+	/*Item_Initialize();
+	const int coinModel = Item_LoadModel("model/coin/Coin.fbx", 0.4f, false);
+	const int musicNoteModel = Item_LoadModel("model/musicNote/Music Note.fbx", 0.01f, false);
+	Item_Add({ 3.0f, 1.5f, 1.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
+	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
+	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
+	*/
 }
 
-void StageMagmaManager_ChangeStage(const StageInfo& info)
+void StageDisapearManager_ChangeStage(const StageInfo& info)
 {
-	StageMagmaManager_SetStageInfo(info);
-	StageMagma_SetPlayerPositionAndLoadJson(g_spawnPos, g_stageJsonPath);
+	StageDisapearManager_SetStageInfo(info);
+	StageDisapear_SetPlayerPositionAndLoadJson(g_spawnPos, g_stageJsonPath);
 }
 
-void StageMagmaManager_Finalize()
+void StageDisapearManager_Finalize()
 {
 	Goal_Uninit();
 	//BulletHitEffect_Finalize();
@@ -241,7 +229,7 @@ void StageMagmaManager_Finalize()
 	Item_Finalize();
 }
 
-void StageMagmaManager_Update(double elapsedTime)
+void StageDisapearManager_Update(double elapsedTime)
 {
 	//Camera_UpdateKeys(elapsed_time);
 	//Camera_UpdateInput();
@@ -252,6 +240,7 @@ void StageMagmaManager_Update(double elapsedTime)
 	//case WM_MOUSEWHEEL: Camera_OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam)); break;
 
 	// Gamepad input (XInput)
+	 // すでにゴール演出中なら、ステージ/プレイヤー更新を止めて Goal だけ動かす
 	{
 		const GoalState gs = Goal_GetState();
 		if (gs == GoalState::Clear || gs == GoalState::WaitInput)
@@ -264,7 +253,7 @@ void StageMagmaManager_Update(double elapsedTime)
 			}
 
 			Goal_Update(elapsedTime);
-			g_goalMagma = Goal_GetState();
+			g_goalSimple = Goal_GetState();
 			return;
 		}
 	}
@@ -272,17 +261,6 @@ void StageMagmaManager_Update(double elapsedTime)
 	GamepadState pad{};
 	bool ok = Gamepad_GetState(0, &pad);
 
-	/*static float logT = 0.0f;
-	logT += elapsedTime;
-	if (logT > 0.5f)
-	{
-		logT = 0.0f;
-		char buf[256];
-		sprintf_s(buf, "pad ok=%d lx=%.3f ly=%.3f  a=%d b=%d x=%d y=%d\n",
-			ok ? 1 : 0, pad.lx, pad.ly,
-			pad.a ? 1 : 0, pad.b ? 1 : 0, pad.x ? 1 : 0, pad.y ? 1 : 0);
-		OutputDebugStringA(buf);
-	}*/
 	bool padConnected = ok && pad.connected;
 
 	if (padConnected)
@@ -333,7 +311,7 @@ void StageMagmaManager_Update(double elapsedTime)
 
 
 
-	StageMagma_Update(elapsedTime);
+	StageDisapear_Update(elapsedTime);
 	Stage01_Update(elapsedTime);
 
 	Player_Update(elapsedTime);
@@ -342,16 +320,19 @@ void StageMagmaManager_Update(double elapsedTime)
 	Item_Update();
 
 	Goal_Update(elapsedTime);
-	g_goalMagma = Goal_GetState();
+	g_goalSimple = Goal_GetState();
 }
 
-void StageMagmaManager_Draw()
+void StageDisapearManager_Draw()
 {
-	if (g_goalMagma == GoalState::Clear || g_goalMagma == GoalState::WaitInput)
+	// ゴール演出中はステージを描かず、クリアUIだけ表示
+	if (g_goalSimple == GoalState::Clear || g_goalSimple == GoalState::WaitInput)
 	{
 		Goal_DrawUI();
 		return;
 	}
+
+
 	mapRendering();
 	lightRendering();
 
@@ -361,8 +342,6 @@ void StageMagmaManager_Draw()
 
 	//レンダーターゲットをバックバッフアへ
 	Direct3D_SetOffscreen();
-	Direct3D_ClearOffscreen();
-	Direct3D_SetDepthEnable(true);
 	Direct3D_SetBackBuffer();
 
 	static int draw_count = 0;
@@ -446,10 +425,9 @@ void StageMagmaManager_Draw()
 	//Cube_Draw(W1);
 
 	XMMATRIX W2 = XMMatrixIdentity();
-	float w2_offset = MeshField_GetHalf(); 
-	W2 = XMMatrixTranslation(-w2_offset, meshFieldPosY, -w2_offset+45.0f);
+	float w2_offset = MeshField_GetHalf(); W2 = XMMatrixTranslation(-w2_offset, 0, -w2_offset);
 	Direct3D_SetDepthShadowTexture(2);
-	MeshField_Draw(W2);
+	//MeshField_Draw(W2);
 
 	/*Sampler_SetFilterAnisotropic();
 	XMMATRIX theWorld = XMMatrixTranslation(3.0f, 0.5f, 2.0f);
@@ -480,6 +458,6 @@ void StageMagmaManager_Draw()
 	Camera_SetMatrix(view, proj);//必要
 	Stage01_Draw();
 	Item_Draw();
-
 }
+
 

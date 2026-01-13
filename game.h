@@ -9,6 +9,7 @@
 
 #ifndef GAME_H
 #define GAME_H
+#include "stage_registry.h"
 #include<DirectXMath.h>
 
 void Game_Initialize();
@@ -17,5 +18,8 @@ void Game_Finalize();
 //ƒQ[ƒ€‚É‚ÍUpdate‚ÆDraw‚ª‚Ü‚¸•K—v
 void Game_Update(float elapsed_time);
 void Game_Draw();
+
+void Game_ChangeStage(StageId next);
+
 
 #endif//GAME_H
