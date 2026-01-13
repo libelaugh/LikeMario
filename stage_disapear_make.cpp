@@ -149,11 +149,11 @@ void StageDisapear_Update(double elapsedTime)
         g_prevOffsetX1 = offsetX1;
         g_prevOffsetZ1 = offsetZ1;
 
-    
 
 
-    Stage01_AddObjectTransform(1, no, { deltaX1,0.0f, deltaZ1 }, no);
 
+        Stage01_AddObjectTransform(1, no, { deltaX1,0.0f, deltaZ1 }, no);
+    }
 
 
 
