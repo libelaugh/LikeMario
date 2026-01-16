@@ -149,7 +149,6 @@ void StageSimple_Update(double elapsedTime)
     const float offsetX5 = -5.0f * sinf(aTime);
     const float deltaX5 = offsetX5 - g_prevOffsetX5;
     const float offsetX6 = 5.0f * sinf(aTime);
-
     const float deltaX6 = offsetX6 - g_prevOffsetX6;
     float deltaZ7 = 0.0f;
     float offsetZ7 = g_prevOffsetZ7;

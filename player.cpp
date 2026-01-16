@@ -51,6 +51,18 @@ static inline float ClampFloat(float v, float lo, float hi)
 	if (v > hi) return hi;
 	return v;
 }
+//サイズ０にして描画とコリジョンを消す
+static void HideStageBlockRuntime(int index)
+{
+	StageBlock* block = Stage01_GetMutable(index);
+	if (!block) return;
+
+	block->positionOffset.y -= 10000.0f;
+	block->sizeOffset.x = -block->size.x;
+	block->sizeOffset.y = -block->size.y;
+	block->sizeOffset.z = -block->size.z;
+	Stage01_RebuildObject(index);
+}
 
 // ちょい下を調べて「床がある」なら groundY(床の上面Y) を返す
 static bool ProbeGroundY(const DirectX::XMVECTOR& position, float eps, float* outGroundY)
@@ -282,14 +294,14 @@ void Player_Update(double elapsedTime)
 	else if (inputEnabled)
 	{
 		// Keyboard fallback (not the main path)
-		/*
 		if (KeyLogger_IsPressed(KK_W)) in.moveY += 1.0f;
 		if (KeyLogger_IsPressed(KK_S)) in.moveY -= 1.0f;
 		if (KeyLogger_IsPressed(KK_D)) in.moveX += 1.0f;
 		if (KeyLogger_IsPressed(KK_A)) in.moveX -= 1.0f;
 
-		in.jump = KeyLogger_IsPressed(KK_J);*/
-		// in.dash / in.spin / in.crouch : map if you want
+		in.jump = KeyLogger_IsPressed(KK_U);
+		in.spin = KeyLogger_IsPressed(KK_I);
+		in.crouch = KeyLogger_IsPressed(KK_O);
 	}
 
 	// CrouchJump後の硬直：少しの間だけ移動入力を無効化（ジャンプ/スピン等のボタンはそのまま）
@@ -896,7 +908,7 @@ void Player_Update(double elapsedTime)
 	// ===== Integrate =====
 	position += velocity * dt;
 
-	// ===== Spin AABB vs AABB : Spin attack destroys kind==0 cube =====
+	// ===== Spin AABB vs AABB : Spin attack destroys kind==0 cube  (runtime only)=====
 	{
 		const PlayerActionState* act = Player_GetActionState();
 		if (act && act->id == PlayerActionId::Spin)
@@ -912,12 +924,15 @@ void Player_Update(double elapsedTime)
 			const int blockCount = Stage01_GetCount();
 			for (int i = 0; i < blockCount; ++i)
 			{
-				const StageBlock* obj = Stage01_Get(i);
+				StageBlock* obj = Stage01_GetMutable(i);
 				if (!obj) continue;
 				if (obj->kind != 10) continue;//kind==１０のCubeにスピンを当てたら破壊できる
 				if (!Collision_IsOverlapAABB(spinAabb, obj->aabb)) continue;
 
-				Stage01_Remove(i);
+				obj->sizeOffset.x = -obj->size.x;
+				obj->sizeOffset.y = -obj->size.y;
+				obj->sizeOffset.z = -obj->size.z;
+				HideStageBlockRuntime(i);
 				break;
 			}
 		}
@@ -973,10 +988,10 @@ void Player_Update(double elapsedTime)
 						g_isGrounded = true;
 					}
 
-					// Hit head (jumping) : remove kind==0 cube
+					// Hit head (jumping) : remove kind==0 cube(runtime only)
 					if (dir < 0.0f && XMVectorGetY(velocity) > 0.0f && obj->kind == 10)
 					{
-						Stage01_Remove(i);
+						HideStageBlockRuntime(i);
 						removedBlock = true;
 						anyHit = true;
 						velocity = XMVectorSetY(velocity, 0.0f);

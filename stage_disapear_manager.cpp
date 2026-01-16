@@ -58,7 +58,7 @@ static DirectX::XMFLOAT3 g_spawnPos = { 0.0f, 5.0f, 2.5f };
 static DirectX::XMFLOAT3 g_spawnFront = { 0.0f, 0.0f, 1.0f };
 static const char* g_stageJsonPath = "stage_disapear.json";
 
-static GoalState g_goalSimple = GoalState::Active;
+static GoalState g_goalDisapear = GoalState::Active;
 
 static void StageDisapearManager_SetStageInfo(const StageInfo& info)
 {
@@ -173,7 +173,6 @@ const char* StageDisapearManager_GetStageJsonPath()
 
 void StageDisapearManager_Initialize(const StageInfo& info)
 {
-	LoadAudio("title.wav");
 	StageDisapearManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
@@ -194,12 +193,12 @@ void StageDisapearManager_Initialize(const StageInfo& info)
 	//Enemy_Create({ 1.0f,5.0f,1.0f });
 
 	g_isDebug = false;
-	g_goalSimple = GoalState::Active;
+	g_goalDisapear = GoalState::Active;
 
 
 	Stage01_Initialize(g_stageJsonPath);
 	Goal_Init();
-	Goal_SetPosition({ 0.0f, 5.0f,15.0f });
+	Goal_SetPosition({ 0.0f, 0.0f,-100.0f });
 
 	/*Item_Initialize();
 	const int coinModel = Item_LoadModel("model/coin/Coin.fbx", 0.4f, false);
@@ -209,7 +208,9 @@ void StageDisapearManager_Initialize(const StageInfo& info)
 	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
 	*/
 
-	PlayAudio(disBgm);
+	disBgm = LoadAudio("title.wav");
+	PlayAudio(disBgm, true);
+
 }
 
 void StageDisapearManager_ChangeStage(const StageInfo& info)
@@ -238,6 +239,7 @@ void StageDisapearManager_Finalize()
 
 void StageDisapearManager_Update(double elapsedTime)
 {
+	Goal_SetPosition({ 0.0f, 0.0f,-100.0f });
 	//Camera_UpdateKeys(elapsed_time);
 	//Camera_UpdateInput();
 	//float aspect = (float)Direct3D_GetBackBufferWidth() / Direct3D_GetBackBufferHeight();
@@ -260,7 +262,7 @@ void StageDisapearManager_Update(double elapsedTime)
 			}
 
 			Goal_Update(elapsedTime);
-			g_goalSimple = Goal_GetState();
+			g_goalDisapear = Goal_GetState();
 			return;
 		}
 	}
@@ -327,13 +329,18 @@ void StageDisapearManager_Update(double elapsedTime)
 	Item_Update();
 
 	Goal_Update(elapsedTime);
-	g_goalSimple = Goal_GetState();
+	g_goalDisapear = Goal_GetState();
+
+	if (g_goalDisapear == GoalState::Clear)
+	{
+		StopAudio(disBgm);
+	}
 }
 
 void StageDisapearManager_Draw()
 {
 	// ゴール演出中はステージを描かず、クリアUIだけ表示
-	if (g_goalSimple == GoalState::Clear || g_goalSimple == GoalState::WaitInput)
+	if (g_goalDisapear == GoalState::Clear || g_goalDisapear == GoalState::WaitInput)
 	{
 		Goal_DrawUI();
 		return;

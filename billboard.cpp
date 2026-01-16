@@ -157,15 +157,25 @@ void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position,
 	const DirectX::XMFLOAT4& color, const DirectX::XMFLOAT2& pivot)
 {
 	UVParameter uv{};
-	if (tex_cut.x == 0 || tex_cut.y == 0)
+	if (tex_cut.z == 0 || tex_cut.w == 0)
 	{
 		uv.scale = { 1.0f, 1.0f };
 		uv.translation = { 0.0f, 0.0f };
 	}
 	else
 	{
-		uv.scale = { 1.0f / (float)tex_cut.x, 1.0f / (float)tex_cut.y };
-		uv.translation = { uv.scale.x * (float)tex_cut.z, uv.scale.y * (float)tex_cut.w };
+		float tw = static_cast<float>(Texture_Width(texId));
+		float th = static_cast<float>(Texture_Height(texId));
+		if (tw > 0.0f && th > 0.0f)
+		{
+			uv.scale = { static_cast<float>(tex_cut.z) / tw, static_cast<float>(tex_cut.w) / th };
+			uv.translation = { static_cast<float>(tex_cut.x) / tw, static_cast<float>(tex_cut.y) / th };
+		}
+		else
+		{
+			uv.scale = { 1.0f, 1.0f };
+			uv.translation = { 0.0f, 0.0f };
+		}
 	}
 	ShaderBillboard_SetUVParameter(uv);
 	ShaderBillboard_SetColor(color);

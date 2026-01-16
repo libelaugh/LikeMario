@@ -195,7 +195,6 @@ float StageMagmaManager_GetMagmaBaseY()
 
 void StageMagmaManager_Initialize(const StageInfo& info)
 {
-	LoadAudio("magma.wav");
 	StageMagmaManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
@@ -221,7 +220,9 @@ void StageMagmaManager_Initialize(const StageInfo& info)
 	Goal_Init();
 	Goal_SetPosition({ 6.0f, 22.0f, 42.0f });
 
-	PlayAudio(magmaBgm);
+	magmaBgm = LoadAudio("magma.wav");
+	PlayAudio(magmaBgm, true);
+
 }
 
 void StageMagmaManager_ChangeStage(const StageInfo& info)
@@ -350,6 +351,11 @@ void StageMagmaManager_Update(double elapsedTime)
 
 	Goal_Update(elapsedTime);
 	g_goalMagma = Goal_GetState();
+
+	if (g_goalMagma == GoalState::Clear)
+	{
+		StopAudio(magmaBgm);
+	}
 }
 
 void StageMagmaManager_Draw()
