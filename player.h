@@ -12,6 +12,7 @@
 
 #include"collision.h"
 #include "player_action.h"
+#include "stage01_manage.h"
 #include<DirectXMath.h>
 
 struct PlayerInput
@@ -68,6 +69,8 @@ struct PlayerLedgeTuning;
 const DirectX::XMFLOAT3& Player_GetVelocity();
 PlayerActionParams* Player_GetActionParams();
 PlayerActionState* Player_GetActionState();
+
+DirectX::XMFLOAT3 Player_GetDestroyedBrickBlockPosition(StageBlock*o);
 
 
 

@@ -23,4 +23,6 @@ void StageSimpleManager_Draw();
 DirectX::XMFLOAT3 StageSimpleManager_GetSpawnPosition();
 const char* StageSimpleManager_GetStageJsonPath();
 
+void StageSimpleManager_AddSpinBreakBillboard(const DirectX::XMFLOAT3& position);
+
 #endif//STAGE_SIMPLE_MANAGER_H

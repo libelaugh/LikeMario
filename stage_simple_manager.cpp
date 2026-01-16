@@ -36,6 +36,7 @@
 #include"sky.h"
 #include "goal.h"
 #include"Audio.h"
+#include <vector>
 #include <type_traits>
 #include <utility>
 #include <cmath>
@@ -45,9 +46,12 @@ using namespace DirectX;
 
 static int simpleBgm = -1;
 
-static int testTex = -1;
-static int g_animId = -1;
-static int g_animPlayId = -1;
+static int g_brickHitTex = -1;
+static int g_animBrickHitId = -1;
+static int g_playAnimBrickId = -1;
+
+
+static std::vector<DirectX::XMFLOAT3> g_spinBreakBillboardPositions;
 
 static bool g_isDebug = false;
 
@@ -169,10 +173,15 @@ const char* StageSimpleManager_GetStageJsonPath()
 	return g_stageJsonPath;
 }
 
+void StageSimpleManager_AddSpinBreakBillboard(const DirectX::XMFLOAT3& position)
+{
+	g_spinBreakBillboardPositions.push_back(position);
+}
 
 void StageSimpleManager_Initialize(const StageInfo& info)
 {
 	StageSimpleManager_SetStageInfo(info);
+	g_spinBreakBillboardPositions.clear();
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
 	PlayerCamera_Initialize();
@@ -182,9 +191,9 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	Sky_Initialize();
 	Billboard_Initialize();
 	//BulletHitEffect_Initialize();
-	testTex = Texture_Load(L"runningman001.png");
-	g_animId = SpriteAnim_RegisterPattern(testTex, 10, 5, 0.1, { 140,200 }, { 0,0 },true);
-	g_animPlayId = SpriteAnim_CreatePlayer(g_animId);
+	g_brickHitTex = Texture_Load(L"brickHitEffect.png");
+	g_animBrickHitId = SpriteAnim_RegisterPattern(g_brickHitTex, 10, 10, 0.1, { 140,200 }, { 0,0 }, true);
+	g_playAnimBrickId = SpriteAnim_CreatePlayer(g_animBrickHitId);
 	LightCamera_Initialize({ -1.0f,-1.0f,1.0f }, { 0.0f,20.0f,-0.0f });
 
 
@@ -213,13 +222,14 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 void StageSimpleManager_ChangeStage(const StageInfo& info)
 {
 	StageSimpleManager_SetStageInfo(info);
+	g_spinBreakBillboardPositions.clear();
 	StageSimple_SetPlayerPositionAndLoadJson(g_spawnPos, g_stageJsonPath);
 }
 
 void StageSimpleManager_Finalize()
 {
 	if (simpleBgm >= 0) { UnloadAudio(simpleBgm); simpleBgm = -1; }
-
+	g_spinBreakBillboardPositions.clear();
 	Goal_Uninit();
 	//BulletHitEffect_Finalize();
 		//Enemy_Finalize();
@@ -455,8 +465,14 @@ void StageSimpleManager_Draw()
 	//ビルボード描くとかくついたり、処理落ちするようになっちゃったかも
 	//////////////////////////////////////////
 	//Billboard_Draw(testTex, { -3.0f,2.0f,0.0f }, 5.0f, 5.0f , { 0.0f,2.0f});
-	BillboardAnim_Draw(g_animPlayId, { -3.0f,2.0f,0.0f }, { 5.0f, 5.0f }, { 0.0f,2.0f });
-
+	//BillboardAnim_Draw(g_animPlayId, { -3.0f,2.0f,0.0f }, { 5.0f, 5.0f }, { 0.0f,2.0f });
+	if (g_animBrickHitId >= 0)
+	{
+		for (const auto& pos : g_spinBreakBillboardPositions)
+		{
+			BillboardAnim_Draw(g_animBrickHitId, pos, { 5.0f, 5.0f }, { 0.0f,2.0f });
+		}
+	}
 
 	if (g_isDebug) {
 		Camera_DebugDraw();

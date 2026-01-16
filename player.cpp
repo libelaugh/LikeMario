@@ -16,13 +16,15 @@
 //#include"cube_.h"
 //#include"map.h"
 #include "model_skinned_fixed.h"
-#include "stage01_manage.h"
+//#include "stage01_manage.h"
 // #include "stage_map.h"  
 #include"collision.h"
 #include "debug_ostream.h"
 #include "imgui_manager.h"
 #include "gamepad.h"
 #include "player_action.h"
+#include"billboard.h"
+#include "stage_simple_manager.h"
 #include<DirectXMath.h>
 #include <windows.h>
 #include <cmath>
@@ -929,6 +931,13 @@ void Player_Update(double elapsedTime)
 				if (obj->kind != 10) continue;//kind==１０のCubeにスピンを当てたら破壊できる
 				if (!Collision_IsOverlapAABB(spinAabb, obj->aabb)) continue;
 
+				const DirectX::XMFLOAT3 hitPosition{
+				(obj->aabb.min.x + obj->aabb.max.x) * 0.5f,
+				(obj->aabb.min.y + obj->aabb.max.y) * 0.5f,
+				(obj->aabb.min.z + obj->aabb.max.z) * 0.5f
+				};
+				StageSimpleManager_AddSpinBreakBillboard(hitPosition);
+
 				obj->sizeOffset.x = -obj->size.x;
 				obj->sizeOffset.y = -obj->size.y;
 				obj->sizeOffset.z = -obj->size.z;
@@ -1394,5 +1403,11 @@ PlayerActionParams* Player_GetActionParams()
 PlayerActionState* Player_GetActionState()
 {
 	return &g_act;
+}
+
+XMFLOAT3 Player_GetDestroyedBrickBlockPosition(StageBlock* o)
+{
+	XMFLOAT3 pos = o->position;
+	return pos;
 }
 
