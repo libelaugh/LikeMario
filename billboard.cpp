@@ -13,6 +13,7 @@
 #include"shader_billboard.h"
 #include"player_camera.h"
 #include<DirectXMath.h>
+#include <cmath>
 
 
 using namespace DirectX;
@@ -180,13 +181,19 @@ void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position,
 
 	// View/Proj は ShaderBillboard 側に正しく渡す（後述）
 	// world（ビルボード回転）
-	using namespace DirectX;
-	XMMATRIX iv = XMMatrixTranspose(XMLoadFloat4x4(&g_mtxView)); // translationゼロ済み想定
+	XMFLOAT3 front{
+		g_mtxView._13,
+		g_mtxView._23,
+		g_mtxView._33
+	};
+	front = PlayerCamera_GetFront();//0.0f
+	float yaw = std::atan2(front.x, front.z);
+	XMMATRIX rotY = XMMatrixRotationY(yaw);
 	XMMATRIX pivotOffset = XMMatrixTranslation(-pivot.x, -pivot.y, 0.0f);
 	XMMATRIX s = XMMatrixScaling(scale.x, scale.y, 1.0f);
 	XMMATRIX t = XMMatrixTranslation(position.x, position.y, position.z);
 
-	ShaderBillboard_SetWorldMatrix(s * pivotOffset * iv * t);
+	ShaderBillboard_SetWorldMatrix(s * pivotOffset * rotY * t);
 
 	Direct3D_GetContext()->DrawIndexed(BB_INDEX_COUNT, 0, 0);
 }

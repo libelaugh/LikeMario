@@ -183,10 +183,10 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	Billboard_Initialize();
 	//BulletHitEffect_Initialize();
 	testTex = Texture_Load(L"runningman001.png");
-	g_animId = SpriteAnim_RegisterPattern(testTex, 10, 5, 0.1, { 140,200 }, { 0,0, });
+	g_animId = SpriteAnim_RegisterPattern(testTex, 10, 5, 0.1, { 140,200 }, { 0,0 },true);
+	g_animPlayId = SpriteAnim_CreatePlayer(g_animId);
 	LightCamera_Initialize({ -1.0f,-1.0f,1.0f }, { 0.0f,20.0f,-0.0f });
 
-	g_animPlayId = SpriteAnim_CreatePlayer(g_animId);
 
 	//Enemy_Create({ 1.0f,0.0f,1.0f });
 	//Enemy_Create({ 1.0f,5.0f,1.0f });
@@ -393,10 +393,6 @@ void StageSimpleManager_Draw()
 	//カメラに関する行列をシェーダに設定する
 	Camera_SetMatrix(view, proj);
 
-	//
-	//ShaderBillboard_SetViewMatrix(view);
-	//ShaderBillboard_SetProjectionMatrix(proj);
-	//Billboard_SetViewMatrix(mtxView);
 
 	//テクスチャサンプラーの設定
 	Sampler_SetFilterAnisotropic();
@@ -454,8 +450,12 @@ void StageSimpleManager_Draw()
 
 	//Bullet_Draw();
 
-	Billboard_Draw(testTex, { -3.0f,2.0f,0.0f }, 5.0f, 5.0f , { 0.0f,2.0f});
-	//BillboardAnim_Draw(g_animPlayId, { -10.0f,0.0f,-10.0f }, { 3.5f,5.0f }, { 0.0f,-2.5f });
+
+	//////////////////////////////////////////
+	//ビルボード描くとかくついたり、処理落ちするようになっちゃったかも
+	//////////////////////////////////////////
+	//Billboard_Draw(testTex, { -3.0f,2.0f,0.0f }, 5.0f, 5.0f , { 0.0f,2.0f});
+	BillboardAnim_Draw(g_animPlayId, { -3.0f,2.0f,0.0f }, { 5.0f, 5.0f }, { 0.0f,2.0f });
 
 
 	if (g_isDebug) {

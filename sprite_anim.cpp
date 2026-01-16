@@ -158,7 +158,7 @@ m_StartPosition.x：スプライトシートの開始位置（X座標）
 		pAnimPatternData->m_PatternSize.y
 	);
 }
-/*
+
 void BillboardAnim_Draw(int playid, const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT2& scale, const DirectX::XMFLOAT2& pivot)
 {
 	int anim_pattern_id = g_AnimPlay[playid].m_PatternId;
@@ -182,7 +182,6 @@ void BillboardAnim_Draw(int playid, const DirectX::XMFLOAT3& position, const Dir
 		pivot
 	);
 }
-*/
 
 /*1つのアニメーションパターン（スプライトの分割情報）を登録して、管理番号を返す関数*/
 /*関数の目的
