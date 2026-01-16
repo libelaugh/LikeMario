@@ -29,6 +29,15 @@ static ID3D11Buffer* g_pVertexBuffer = nullptr; // 頂点バッファ
 static ID3D11Buffer* g_pIndexBuffer = nullptr; // インデックスバッファ
 
 static XMFLOAT4X4 g_mtxView{};//ビュー行列の平行移動成分をカットした行列
+static int g_lastTexId = -1;
+static DirectX::XMUINT4 g_lastTexCut{ 0, 0, 0, 0 };
+static UVParameter g_lastUV{ {1.0f, 1.0f}, {0.0f, 0.0f} };
+static bool g_hasLastUV = false;
+static DirectX::XMFLOAT4 g_lastColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+static bool g_hasLastColor = false;
+static DirectX::XMFLOAT3 g_lastFront{ 0.0f, 0.0f, 1.0f };
+static float g_lastYaw = 0.0f;
+static bool g_hasLastFront = false;
 
 struct VertexBillboard
 {
@@ -157,28 +166,52 @@ void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position,
 	const DirectX::XMFLOAT4& color, const DirectX::XMFLOAT2& pivot)
 {
 	UVParameter uv{};
-	if (tex_cut.z == 0 || tex_cut.w == 0)
+	if (!g_hasLastUV
+		|| texId != g_lastTexId
+		|| tex_cut.x != g_lastTexCut.x
+		|| tex_cut.y != g_lastTexCut.y
+		|| tex_cut.z != g_lastTexCut.z
+		|| tex_cut.w != g_lastTexCut.w)
 	{
-		uv.scale = { 1.0f, 1.0f };
-		uv.translation = { 0.0f, 0.0f };
-	}
-	else
-	{
-		float tw = static_cast<float>(Texture_Width(texId));
-		float th = static_cast<float>(Texture_Height(texId));
-		if (tw > 0.0f && th > 0.0f)
-		{
-			uv.scale = { static_cast<float>(tex_cut.z) / tw, static_cast<float>(tex_cut.w) / th };
-			uv.translation = { static_cast<float>(tex_cut.x) / tw, static_cast<float>(tex_cut.y) / th };
-		}
-		else
+		UVParameter uv{};
+		if (tex_cut.z == 0 || tex_cut.w == 0)
 		{
 			uv.scale = { 1.0f, 1.0f };
 			uv.translation = { 0.0f, 0.0f };
 		}
+		else
+		{
+			float tw = static_cast<float>(Texture_Width(texId));
+			float th = static_cast<float>(Texture_Height(texId));
+			if (tw > 0.0f && th > 0.0f)
+			{
+				uv.scale = { static_cast<float>(tex_cut.z) / tw, static_cast<float>(tex_cut.w) / th };
+				uv.translation = { static_cast<float>(tex_cut.x) / tw, static_cast<float>(tex_cut.y) / th };
+			}
+			else
+			{
+				uv.scale = { 1.0f, 1.0f };
+				uv.translation = { 0.0f, 0.0f };
+			}
+		}
+		ShaderBillboard_SetUVParameter(uv);
+		g_lastUV = uv;
+		g_lastTexId = texId;
+		g_lastTexCut = tex_cut;
+		g_hasLastUV = true;
 	}
-	ShaderBillboard_SetUVParameter(uv);
-	ShaderBillboard_SetColor(color);
+
+	if (!g_hasLastColor
+		|| color.x != g_lastColor.x
+		|| color.y != g_lastColor.y
+		|| color.z != g_lastColor.z
+		|| color.w != g_lastColor.w)
+	{
+		ShaderBillboard_SetColor(color);
+		g_lastColor = color;
+		g_hasLastColor = true;
+		}
+
 	ShaderBillboard_Begin();
 
 	UINT stride = sizeof(VertexBillboard);
@@ -191,13 +224,17 @@ void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position,
 
 	// View/Proj は ShaderBillboard 側に正しく渡す（後述）
 	// world（ビルボード回転）
-	XMFLOAT3 front{
-		g_mtxView._13,
-		g_mtxView._23,
-		g_mtxView._33
-	};
-	front = PlayerCamera_GetFront();//0.0f
-	float yaw = std::atan2(front.x, front.z);
+	const XMFLOAT3& front = PlayerCamera_GetFront();
+	if (!g_hasLastFront
+		|| std::abs(front.x - g_lastFront.x) > 0.0001f
+		|| std::abs(front.y - g_lastFront.y) > 0.0001f
+		|| std::abs(front.z - g_lastFront.z) > 0.0001f)
+	{
+		g_lastYaw = std::atan2(front.x, front.z);
+		g_lastFront = front;
+		g_hasLastFront = true;
+	}
+	float yaw = g_lastYaw;
 	XMMATRIX rotY = XMMatrixRotationY(yaw);
 	XMMATRIX pivotOffset = XMMatrixTranslation(-pivot.x, -pivot.y, 0.0f);
 	XMMATRIX s = XMMatrixScaling(scale.x, scale.y, 1.0f);
