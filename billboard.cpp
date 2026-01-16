@@ -9,7 +9,6 @@
 
 #include "billboard.h"
 #include"direct3d.h"
-#include"shader3d.h"
 #include"texture.h"
 #include"shader_billboard.h"
 #include"player_camera.h"
@@ -95,6 +94,18 @@ void Billboard_Finalize()
 	SAFE_RELEASE(g_pVertexBuffer);
 }
 
+void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position, float scaleX, float scaleY, const DirectX::XMFLOAT2& pivot)
+{
+	Billboard_Draw(
+		texId,
+		position,
+		DirectX::XMFLOAT2{ scaleX, scaleY },
+		DirectX::XMUINT4{ 1, 1, 0, 0 },
+		DirectX::XMFLOAT4{ 1.0f,1.0f,1.0f,1.0f },
+		pivot
+	);
+}
+
 /*
 void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position, float scaleX, float scaleY, const XMFLOAT2& pivot)
 {
@@ -144,19 +155,20 @@ void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position,
 	const DirectX::XMFLOAT2& scale, const DirectX::XMUINT4& tex_cut,
 	const DirectX::XMFLOAT4& color, const DirectX::XMFLOAT2& pivot)
 {
-	// UV（あなたの仕組みに合わせてscale/translationを作る）
-	/*ShaderBillboard_SetUVParameter(
-		DirectX::XMFLOAT2{ 1.0f, 1.0f },
-		DirectX::XMFLOAT2{ 0.0f, 1.0f }
-	);*/
-
-
-
-	ShaderBillboard_Begin();
-
-	// ★ここを消す：Shader3D_Begin();
-	// ★ここも消す：Shader3d_SetColor(...);
+	UVParameter uv{};
+	if (tex_cut.x == 0 || tex_cut.y == 0)
+	{
+		uv.scale = { 1.0f, 1.0f };
+		uv.translation = { 0.0f, 0.0f };
+	}
+	else
+	{
+		uv.scale = { 1.0f / (float)tex_cut.x, 1.0f / (float)tex_cut.y };
+		uv.translation = { uv.scale.x * (float)tex_cut.z, uv.scale.y * (float)tex_cut.w };
+	}
+	ShaderBillboard_SetUVParameter(uv);
 	ShaderBillboard_SetColor(color);
+	ShaderBillboard_Begin();
 
 	UINT stride = sizeof(VertexBillboard);
 	UINT offset = 0;

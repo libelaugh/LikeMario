@@ -27,7 +27,7 @@ struct UVParameter
 	DirectX::XMFLOAT2 scale;
 	DirectX::XMFLOAT2 translation;
 };
-void ShaderBillboard_SetUVParameter(const UVParameter& parameter);//切り取ってビルボードにする
+void ShaderBillboard_SetUVParameter(const UVParameter& parameter={ {1.0f, 1.0f}, {0.0f, 0.0f} });//切り取ってビルボードにする
 
 void ShaderBillboard_Begin();
 

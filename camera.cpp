@@ -12,6 +12,8 @@
 #include"key_logger.h"
 #include "mouse.h"
 #include"debug_text.h"
+#include "shader_billboard.h"
+#include "billboard.h"
 #include <windows.h>
 #include<sstream>
 
@@ -255,6 +257,15 @@ void Camera_SetMatrix(const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& pr
     Direct3D_GetContext()->VSSetConstantBuffers(1, 1, &g_pVSConstantBuffer1);
     Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer2, 0, nullptr, &p, 0, 0);
     Direct3D_GetContext()->VSSetConstantBuffers(2, 1, &g_pVSConstantBuffer2);
+
+    // ---- Billboard でも同じ view/proj を使う ----
+    ShaderBillboard_SetViewMatrix(view);
+    ShaderBillboard_SetProjectionMatrix(projection);
+
+    // ビルボードの「常にカメラ正面」用（平行移動は Billboard_SetViewMatrix 側で消す）
+    DirectX::XMFLOAT4X4 viewF{};
+    DirectX::XMStoreFloat4x4(&viewF, view);
+    Billboard_SetViewMatrix(viewF);
 }
 
 void Camera_OnMouseWheel(short wheelDelta) {

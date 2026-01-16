@@ -17,16 +17,20 @@ struct PS_IN
 Texture2D tex : register(t0);
 SamplerState samp : register(s0);
 
+cbuffer PS_CONSTANT_COLOR : register(b0)
+{
+    float4 mul_color; // 16byte
+};
+
 float4 main(PS_IN pi) : SV_TARGET
 {
-    //direct3d.cppのbd.AlphaToCoverageEnable = FALSE; をコードで書いてみた
     float4 color = tex.Sample(samp, pi.uv) * pi.color;
-    clip(sin(pi.uv.x * 500));//「clip」テクスチャを一定間隔で切り取る表現
+    /*clip(sin(pi.uv.x * 500));//「clip」テクスチャを一定間隔で切り取る表現
     if (color.a < 0.1f)
     {
         discard;//そのピクセルは描画されない
         //clip(-1);
-    }
+    }*/
     
         return color;
 }

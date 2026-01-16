@@ -32,6 +32,7 @@ bool ShaderBillboard_Initialize()
 	HRESULT hr; // 戻り値格納用
 
 
+
 	// 事前コンパイル済み頂点シェーダーの読み込み
 	//メモリにcsoファイル読み込む(GPUはまだHLSL文を知らない）
 	//csoファイルはビルド時に作られる
@@ -155,7 +156,7 @@ bool ShaderBillboard_Initialize()
 	buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; // バインドフラグ
 	g_pDevice->CreateBuffer(&buffer_desc, nullptr, &g_pPSConstantBuffer0); // world*/
 	D3D11_BUFFER_DESC ps_buffer_desc{};
-	ps_buffer_desc.ByteWidth = sizeof(XMFLOAT4X4);
+	ps_buffer_desc.ByteWidth = sizeof(DirectX::XMFLOAT4);
 	ps_buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	Direct3D_GetDevice()->CreateBuffer(&ps_buffer_desc, nullptr, &g_pPSConstantBuffer0);
 
@@ -208,8 +209,9 @@ void ShaderBillboard_SetProjectionMatrix(const DirectX::XMMATRIX& matrix)
 
 void ShaderBillboard_SetColor(const DirectX::XMFLOAT4& color)
 {
+	DirectX::XMFLOAT4 c = color;//ローカル作ると安全性上がる
 	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pPSConstantBuffer0, 0, nullptr, &color, 0, 0);
+	Direct3D_GetContext()->UpdateSubresource(g_pPSConstantBuffer0, 0, nullptr, &c, 0, 0);
 }
 
 void ShaderBillboard_SetUVParameter(const UVParameter& parameter)
@@ -228,5 +230,7 @@ void ShaderBillboard_Begin()
 	Direct3D_GetContext()->VSSetConstantBuffers(1, 1, &g_pVSConstantBuffer1); // b1 view
 	Direct3D_GetContext()->VSSetConstantBuffers(2, 1, &g_pVSConstantBuffer2); // b2 projection
 	Direct3D_GetContext()->VSSetConstantBuffers(3, 1, &g_pVSConstantBuffer3); // b3 uv
+
+	Direct3D_GetContext()->PSSetConstantBuffers(0, 1, &g_pPSConstantBuffer0);
 }
 

@@ -22,8 +22,7 @@
 #include "gamepad.h"
 //#include"cube_.h"
 //#include"map.h"
-//#include"billboard.h"
-//#include "shader_billboard.h"
+#include"billboard.h"
 #include"sprite_anim.h"
 #include"mouse.h"
 #include"sprite.h"
@@ -173,7 +172,6 @@ const char* StageSimpleManager_GetStageJsonPath()
 
 void StageSimpleManager_Initialize(const StageInfo& info)
 {
-	LoadAudio("simple.wav");
 	StageSimpleManager_SetStageInfo(info);
 	Player_Initialize(g_spawnPos, g_spawnFront); //({ 6.5f, 3.0f, 1.0f }, { 0,0,1 });
 	Camera_Initialize({ 0.004,4.8,-8.7 }, { 0, -0.5, 0.85 }, { 0,0.85,0.53 }, { 1,0,0 });
@@ -182,7 +180,7 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	//Enemy_Initialize();
 	//Bullet_Initialize();
 	Sky_Initialize();
-	//Billboard_Initialize();
+	Billboard_Initialize();
 	//BulletHitEffect_Initialize();
 	testTex = Texture_Load(L"runningman001.png");
 	g_animId = SpriteAnim_RegisterPattern(testTex, 10, 5, 0.1, { 140,200 }, { 0,0, });
@@ -208,7 +206,8 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	Item_Add({ 2.0f, 1.5f, 2.0f }, { 90.0f, 0.0f, 0.0f }, coinModel);
 	Item_Add({ 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.0f }, musicNoteModel);
 	*/
-	PlayAudio(simpleBgm);
+	simpleBgm = LoadAudio("simple.wav");
+	PlayAudio(simpleBgm, true);   // ƒ‹[ƒv
 }
 
 void StageSimpleManager_ChangeStage(const StageInfo& info)
@@ -219,7 +218,8 @@ void StageSimpleManager_ChangeStage(const StageInfo& info)
 
 void StageSimpleManager_Finalize()
 {
-	UnloadAudio(simpleBgm);
+	if (simpleBgm >= 0) { UnloadAudio(simpleBgm); simpleBgm = -1; }
+
 	Goal_Uninit();
 	//BulletHitEffect_Finalize();
 		//Enemy_Finalize();
@@ -227,7 +227,7 @@ void StageSimpleManager_Finalize()
 		//Bullet_Finalize();
     Sky_Finalize();
 	Camera_Finalize();
-	//Billboard_Finalize();
+	Billboard_Finalize();
 
 
 
@@ -327,6 +327,11 @@ void StageSimpleManager_Update(double elapsedTime)
 
 	Goal_Update(elapsedTime);
 	g_goalSimple = Goal_GetState();
+
+	if (g_goalSimple == GoalState::Clear)
+	{
+		StopAudio(simpleBgm); 
+	}
 }
 
 void StageSimpleManager_Draw()
@@ -449,7 +454,7 @@ void StageSimpleManager_Draw()
 
 	//Bullet_Draw();
 
-	//Billboard_Draw(testTex, { -10.0f,0.0f,-10.0f }, { 3.5f,5.0f }, { 140 * 3,140,200 }, { 0.0f,-2.5f });
+	Billboard_Draw(testTex, { -3.0f,2.0f,0.0f }, 5.0f, 5.0f , { 0.0f,2.0f});
 	//BillboardAnim_Draw(g_animPlayId, { -10.0f,0.0f,-10.0f }, { 3.5f,5.0f }, { 0.0f,-2.5f });
 
 
