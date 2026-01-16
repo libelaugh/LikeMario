@@ -25,12 +25,7 @@ cbuffer PS_CONSTANT_COLOR : register(b0)
 float4 main(PS_IN pi) : SV_TARGET
 {
     float4 color = tex.Sample(samp, pi.uv) * pi.color;
-    /*clip(sin(pi.uv.x * 500));//「clip」テクスチャを一定間隔で切り取る表現
-    if (color.a < 0.1f)
-    {
-        discard;//そのピクセルは描画されない
-        //clip(-1);
-    }*/
+    clip(color.a - 0.1f);
     
-        return color;
+    return color;
 }

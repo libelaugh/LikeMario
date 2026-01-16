@@ -40,6 +40,7 @@
 #include <type_traits>
 #include <utility>
 #include <cmath>
+#include <algorithm>
 #include<DirectXMath.h>
 
 using namespace DirectX;
@@ -51,7 +52,14 @@ static int g_animBrickHitId = -1;
 static int g_playAnimBrickId = -1;
 
 
-static std::vector<DirectX::XMFLOAT3> g_spinBreakBillboardPositions;
+struct SpinBreakBillboard
+ {
+	DirectX::XMFLOAT3 position;
+	double elapsed = 0.0;
+	};
+
+static std::vector<SpinBreakBillboard> g_spinBreakBillboardPositions;
+static constexpr double kSpinBreakBillboardLifetime = 1.0;
 
 static bool g_isDebug = false;
 
@@ -175,7 +183,7 @@ const char* StageSimpleManager_GetStageJsonPath()
 
 void StageSimpleManager_AddSpinBreakBillboard(const DirectX::XMFLOAT3& position)
 {
-	g_spinBreakBillboardPositions.push_back(position);
+	g_spinBreakBillboardPositions.push_back({ position, 0.0 });
 }
 
 void StageSimpleManager_Initialize(const StageInfo& info)
@@ -194,6 +202,18 @@ void StageSimpleManager_Initialize(const StageInfo& info)
 	g_brickHitTex = Texture_Load(L"brickHitEffect.png");
 	g_animBrickHitId = SpriteAnim_RegisterPattern(g_brickHitTex, 10, 10, 0.1, { 140,200 }, { 0,0 }, true);
 	g_playAnimBrickId = SpriteAnim_CreatePlayer(g_animBrickHitId);
+	if (g_brickHitTex < 0)
+		 {
+		g_brickHitTex = Texture_Load(L"brickHitEffect.png");
+		}
+	if (g_animBrickHitId < 0 && g_brickHitTex >= 0)
+		 {
+		g_animBrickHitId = SpriteAnim_RegisterPattern(g_brickHitTex, 10, 10, 0.1, { 140,200 }, { 0,0 }, true);
+		}
+	if (g_playAnimBrickId < 0 && g_animBrickHitId >= 0)
+		 {
+		g_playAnimBrickId = SpriteAnim_CreatePlayer(g_animBrickHitId);
+		}
 	LightCamera_Initialize({ -1.0f,-1.0f,1.0f }, { 0.0f,20.0f,-0.0f });
 
 
@@ -322,7 +342,19 @@ void StageSimpleManager_Update(double elapsedTime)
 
 
 	SpriteAnim_Update(elapsedTime);
-
+	for (auto& billboard : g_spinBreakBillboardPositions)
+		 {
+		billboard.elapsed += elapsedTime;
+		}
+	g_spinBreakBillboardPositions.erase(
+		std::remove_if(
+			g_spinBreakBillboardPositions.begin(),
+			g_spinBreakBillboardPositions.end(),
+			[](const SpinBreakBillboard& billboard)
+			{
+				return billboard.elapsed >= kSpinBreakBillboardLifetime;
+			}),
+		g_spinBreakBillboardPositions.end());
 
 
 
@@ -466,13 +498,13 @@ void StageSimpleManager_Draw()
 	//////////////////////////////////////////
 	//Billboard_Draw(testTex, { -3.0f,2.0f,0.0f }, 5.0f, 5.0f , { 0.0f,2.0f});
 	//BillboardAnim_Draw(g_animPlayId, { -3.0f,2.0f,0.0f }, { 5.0f, 5.0f }, { 0.0f,2.0f });
-	if (g_animBrickHitId >= 0)
-	{
-		for (const auto& pos : g_spinBreakBillboardPositions)
-		{
-			BillboardAnim_Draw(g_animBrickHitId, pos, { 5.0f, 5.0f }, { 0.0f,2.0f });
-		}
-	}
+	if (g_animBrickHitId >= 0 && !g_spinBreakBillboardPositions.empty())
+		 {
+		for (const auto& billboard : g_spinBreakBillboardPositions)
+			 {
+			BillboardAnim_Draw(g_animBrickHitId, billboard.position, { 5.0f, 5.0f }, { 0.0f,2.0f });
+			}
+		 }
 
 	if (g_isDebug) {
 		Camera_DebugDraw();
