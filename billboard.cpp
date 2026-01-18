@@ -9,11 +9,10 @@
 
 #include "billboard.h"
 #include"direct3d.h"
+#include"shader3d.h"
 #include"texture.h"
 #include"shader_billboard.h"
 #include"player_camera.h"
-#include<DirectXMath.h>
-#include <cmath>
 
 
 using namespace DirectX;
@@ -21,45 +20,10 @@ using namespace DirectX;
 static constexpr int NUM_VERTEX = 4 * 6;// 頂点数//意味ある式
 static constexpr float HALF_LENGTH = 0.5f;
 
-static constexpr UINT BB_VERTEX_COUNT = 4;
-static constexpr UINT BB_INDEX_COUNT = 6;
-
-
 static ID3D11Buffer* g_pVertexBuffer = nullptr; // 頂点バッファ
 static ID3D11Buffer* g_pIndexBuffer = nullptr; // インデックスバッファ
 
 static XMFLOAT4X4 g_mtxView{};//ビュー行列の平行移動成分をカットした行列
-static int g_lastTexId = -1;
-static DirectX::XMUINT4 g_lastTexCut{ 0, 0, 0, 0 };
-static UVParameter g_lastUV{ {1.0f, 1.0f}, {0.0f, 0.0f} };
-static bool g_hasLastUV = false;
-static DirectX::XMFLOAT4 g_lastColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-static bool g_hasLastColor = false;
-static DirectX::XMFLOAT3 g_lastFront{ 0.0f, 0.0f, 1.0f };
-static float g_lastYaw = 0.0f;
-static bool g_hasLastFront = false;
-
-struct VertexBillboard
-{
-	DirectX::XMFLOAT3 position;
-	DirectX::XMFLOAT4 color;
-	DirectX::XMFLOAT2 texcoord;
-};
-
-static const VertexBillboard s_vertices[BB_VERTEX_COUNT] =
-{
-	{{-0.5f,  0.5f, 0.0f}, {1,1,1,1}, {0,0}},
-	{{ 0.5f,  0.5f, 0.0f}, {1,1,1,1}, {1,0}},
-	{{ 0.5f, -0.5f, 0.0f}, {1,1,1,1}, {1,1}},
-	{{-0.5f, -0.5f, 0.0f}, {1,1,1,1}, {0,1}},
-};
-
-static const uint16_t s_indices[BB_INDEX_COUNT] =
-{
-	0,1,2,
-	0,2,3
-};
-
 
 // 3D頂点構造体
 struct Vertex3d
@@ -73,50 +37,32 @@ void Billboard_Initialize()
 {
 	ShaderBillboard_Initialize();
 
-	// VB
-	D3D11_BUFFER_DESC vbd{};
-	vbd.Usage = D3D11_USAGE_DEFAULT;
-	vbd.ByteWidth = sizeof(VertexBillboard) * BB_VERTEX_COUNT;
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	static Vertex3d Vertex[24]{
+        {{-0.5f,  0.5f, 0.0f}, {1,1,1,1}, {0,0}},
+		{{ 0.5f,  0.5f, 0.0f}, {1,1,1,1}, {1.0f,0}},
+		{{ 0.5f, -0.5f, 0.0f}, {1,1,1,1}, {0.0f,1.0f}},
+		{{ 0.5f, -0.5f, 0.0f}, {1,1,1,1}, {0,1.0f}},
+	};
 
-	D3D11_SUBRESOURCE_DATA vsd{};
-	vsd.pSysMem = s_vertices;
+	// 頂点バッファ生成
+	D3D11_BUFFER_DESC bd = {};
+	bd.Usage = D3D11_USAGE_DEFAULT;//DEFAULTでCPUでは書き換え不可
+	bd.ByteWidth = sizeof(Vertex3d) * NUM_VERTEX;//sizeof(g_CubeVertex);でもいい
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = 0;//CPUはアクセスできない
 
-	Direct3D_GetDevice()->CreateBuffer(&vbd, &vsd, &g_pVertexBuffer);
+	D3D11_SUBRESOURCE_DATA sd{};
+	sd.pSysMem = Vertex;
 
-	// IB
-	D3D11_BUFFER_DESC ibd{};
-	ibd.Usage = D3D11_USAGE_DEFAULT;
-	ibd.ByteWidth = sizeof(uint16_t) * BB_INDEX_COUNT;
-	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-
-	D3D11_SUBRESOURCE_DATA isd{};
-	isd.pSysMem = s_indices;
-
-	Direct3D_GetDevice()->CreateBuffer(&ibd, &isd, &g_pIndexBuffer);
+	Direct3D_GetDevice()->CreateBuffer(&bd, &sd, &g_pVertexBuffer);
 }
-
 
 void Billboard_Finalize()
 {
 	ShaderBillboard_Finalize();
-	SAFE_RELEASE(g_pIndexBuffer);
 	SAFE_RELEASE(g_pVertexBuffer);
 }
 
-void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position, float scaleX, float scaleY, const DirectX::XMFLOAT2& pivot)
-{
-	Billboard_Draw(
-		texId,
-		position,
-		DirectX::XMFLOAT2{ scaleX, scaleY },
-		DirectX::XMUINT4{ 1, 1, 0, 0 },
-		DirectX::XMFLOAT4{ 1.0f,1.0f,1.0f,1.0f },
-		pivot
-	);
-}
-
-/*
 void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position, float scaleX, float scaleY, const XMFLOAT2& pivot)
 {
 	ShaderBillboard_SetUVParameter({ { 0.2f ,1.0f },{1.0f,1.0f} });
@@ -159,92 +105,58 @@ void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position, float scaleX, 
 
 	// ポリゴン描画命令発行
 	Direct3D_GetContext()->DrawIndexed(NUM_VERTEX, 0, 0);
-}*/
+}
 
 void Billboard_Draw(int texId, const DirectX::XMFLOAT3& position,
-	const DirectX::XMFLOAT2& scale, const DirectX::XMUINT4& tex_cut,
-	const DirectX::XMFLOAT4& color, const DirectX::XMFLOAT2& pivot)
+	const DirectX::XMFLOAT2& scale, const DirectX::XMUINT4& tex_cut, const DirectX::XMFLOAT4& color,
+	const DirectX::XMFLOAT2& pivot )
 {
-	UVParameter uv{};
-	if (!g_hasLastUV
-		|| texId != g_lastTexId
-		|| tex_cut.x != g_lastTexCut.x
-		|| tex_cut.y != g_lastTexCut.y
-		|| tex_cut.z != g_lastTexCut.z
-		|| tex_cut.w != g_lastTexCut.w)
-	{
-		UVParameter uv{};
-		if (tex_cut.z == 0 || tex_cut.w == 0)
-		{
-			uv.scale = { 1.0f, 1.0f };
-			uv.translation = { 0.0f, 0.0f };
-		}
-		else
-		{
-			float tw = static_cast<float>(Texture_Width(texId));
-			float th = static_cast<float>(Texture_Height(texId));
-			if (tw > 0.0f && th > 0.0f)
-			{
-				uv.scale = { static_cast<float>(tex_cut.z) / tw, static_cast<float>(tex_cut.w) / th };
-				uv.translation = { static_cast<float>(tex_cut.x) / tw, static_cast<float>(tex_cut.y) / th };
-			}
-			else
-			{
-				uv.scale = { 1.0f, 1.0f };
-				uv.translation = { 0.0f, 0.0f };
-			}
-		}
-		ShaderBillboard_SetUVParameter(uv);
-		g_lastUV = uv;
-		g_lastTexId = texId;
-		g_lastTexCut = tex_cut;
-		g_hasLastUV = true;
-	}
+	float uv_x = (float)tex_cut.x / Texture_Width(texId);
+	float uv_y = (float)tex_cut.y / Texture_Height(texId);
+	float uv_w = (float)tex_cut.z / Texture_Width(texId);
+	float uv_h = (float)tex_cut.w / Texture_Height(texId);
 
-	if (!g_hasLastColor
-		|| color.x != g_lastColor.x
-		|| color.y != g_lastColor.y
-		|| color.z != g_lastColor.z
-		|| color.w != g_lastColor.w)
-	{
-		ShaderBillboard_SetColor(color);
-		g_lastColor = color;
-		g_hasLastColor = true;
-		}
+	ShaderBillboard_SetUVParameter({ { 1.0f ,1.0f },{0.0f,0.0f} });
 
 	ShaderBillboard_Begin();
 
-	UINT stride = sizeof(VertexBillboard);
+	// シェーダーを描画パイプラインに設定
+	Shader3D_Begin();
+
+	//ピクセルシェーダに色を設定
+	Shader3d_SetColor(color);
+
+	// 頂点バッファを描画パイプラインに設定
+	UINT stride = sizeof(Vertex3d);
 	UINT offset = 0;
 	Direct3D_GetContext()->IASetVertexBuffers(0, 1, &g_pVertexBuffer, &stride, &offset);
-	Direct3D_GetContext()->IASetIndexBuffer(g_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
-	Direct3D_GetContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	// インデックスバッファを描画パイプラインに設定
+	Direct3D_GetContext()->IASetIndexBuffer(g_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);//unsigned shortはR16、unsigned intはR32
+
+
+	//テクスチャ設定
 	Texture_SetTexture(texId);
 
-	// View/Proj は ShaderBillboard 側に正しく渡す（後述）
-	// world（ビルボード回転）
-	const XMFLOAT3& front = PlayerCamera_GetFront();
-	if (!g_hasLastFront
-		|| std::abs(front.x - g_lastFront.x) > 0.0001f
-		|| std::abs(front.y - g_lastFront.y) > 0.0001f
-		|| std::abs(front.z - g_lastFront.z) > 0.0001f)
-	{
-		g_lastYaw = std::atan2(front.x, front.z);
-		g_lastFront = front;
-		g_hasLastFront = true;
-	}
-	float yaw = g_lastYaw;
-	XMMATRIX rotY = XMMatrixRotationY(yaw);
-	XMMATRIX pivotOffset = XMMatrixTranslation(-pivot.x, -pivot.y, 0.0f);
+	// プリミティブトポロジ設定
+	Direct3D_GetContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+
+	//カメラ行列の回転だけ逆行列を作る
+	//XMMATRIX iv = XMMatrixInverse(nullptr, XMLoadFloat4x4(&mtxCamera));  //※逆行列の生成はかなり重い処理
+	//直行行列の逆行列は転地行列に等しい(逆行列生成より処理軽くできる)
+	XMMATRIX iv = XMMatrixTranspose(XMLoadFloat4x4(&g_mtxView));
+
+	//回転軸までのオフセット行列
+	XMMATRIX pivotOffset = XMMatrixTranslation(-pivot.x, -pivot.y, 1.0f);
+
 	XMMATRIX s = XMMatrixScaling(scale.x, scale.y, 1.0f);
 	XMMATRIX t = XMMatrixTranslation(position.x, position.y, position.z);
+	ShaderBillboard_SetWorldMatrix(s * pivotOffset * iv * t);
 
-	ShaderBillboard_SetWorldMatrix(s * pivotOffset * rotY * t);
-
-	Direct3D_GetContext()->DrawIndexed(BB_INDEX_COUNT, 0, 0);
+	// ポリゴン描画命令発行
+	Direct3D_GetContext()->DrawIndexed(NUM_VERTEX, 0, 0);
 }
-
 
 void Billboard_SetViewMatrix(const DirectX::XMFLOAT4X4& view)
 {

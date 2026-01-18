@@ -17,8 +17,8 @@ bool ShaderBillboard_Initialize();
 void ShaderBillboard_Finalize();
 
 void ShaderBillboard_SetWorldMatrix(const DirectX::XMMATRIX& matrix);
-void ShaderBillboard_SetViewMatrix(const DirectX::XMMATRIX& matrix);
-void ShaderBillboard_SetProjectionMatrix(const DirectX::XMMATRIX& matrix);
+/*void ShaderBillboard_SetViewMatrix(const DirectX::XMMATRIX& matrix);
+void ShaderBillboard_SetProjectionMatrix(const DirectX::XMMATRIX& matrix);*/
 
 void ShaderBillboard_SetColor(const DirectX::XMFLOAT4& color);
 
@@ -27,7 +27,7 @@ struct UVParameter
 	DirectX::XMFLOAT2 scale;
 	DirectX::XMFLOAT2 translation;
 };
-void ShaderBillboard_SetUVParameter(const UVParameter& parameter={ {1.0f, 1.0f}, {0.0f, 0.0f} });//切り取ってビルボードにする
+void ShaderBillboard_SetUVParameter(const UVParameter& parameter);//切り取ってビルボードにする
 
 void ShaderBillboard_Begin();
 

@@ -22,7 +22,7 @@ cbuffer VS_CONSTANT_BUFFER2 : register(b2)
     float4x4 projection;
 };
 
-cbuffer VS_CONSTANT_BUFFER3 : register(b3)
+cbuffer VS_CONSTANT_BUFFER2 : register(b3)
 {
     float2 scale;
     float2 translation;

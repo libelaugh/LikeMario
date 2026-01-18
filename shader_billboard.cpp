@@ -20,8 +20,6 @@ using namespace DirectX;
 static ID3D11VertexShader* g_pVertexShader = nullptr; //このポインタはCreateVertexShader()でHLSLのcsoファイルをGPUに渡した後にハンドルを貰う
 static ID3D11InputLayout* g_pInputLayout = nullptr;
 static ID3D11Buffer* g_pVSConstantBuffer0 = nullptr; // 定数バッファb0: world
-static ID3D11Buffer* g_pVSConstantBuffer1 = nullptr; // b1: view
-static ID3D11Buffer* g_pVSConstantBuffer2 = nullptr; // b2: projection
 static ID3D11Buffer* g_pVSConstantBuffer3 = nullptr; // 定数バッファb3
 static ID3D11Buffer* g_pPSConstantBuffer0 = nullptr; // 定数バッファb0
 static ID3D11PixelShader* g_pPixelShader = nullptr;
@@ -30,7 +28,6 @@ static ID3D11PixelShader* g_pPixelShader = nullptr;
 bool ShaderBillboard_Initialize()
 {
 	HRESULT hr; // 戻り値格納用
-
 
 
 	// 事前コンパイル済み頂点シェーダーの読み込み
@@ -105,24 +102,11 @@ bool ShaderBillboard_Initialize()
 		return false;
 	}
 	// 頂点シェーダー用定数バッファの作成
-	// VS: world/view/proj (float4x4)
-	D3D11_BUFFER_DESC mtx_desc{};
-	mtx_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	mtx_desc.Usage = D3D11_USAGE_DEFAULT;
-	mtx_desc.ByteWidth = sizeof(DirectX::XMFLOAT4X4);
-
-	Direct3D_GetDevice()->CreateBuffer(&mtx_desc, nullptr, &g_pVSConstantBuffer0); // b0 world
-	Direct3D_GetDevice()->CreateBuffer(&mtx_desc, nullptr, &g_pVSConstantBuffer1); // b1 view
-	Direct3D_GetDevice()->CreateBuffer(&mtx_desc, nullptr, &g_pVSConstantBuffer2); // b2 projection
-
-	// VS: UVParameter (float2 + float2 = 16 bytes)
-	D3D11_BUFFER_DESC uv_desc{};
-	uv_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	uv_desc.Usage = D3D11_USAGE_DEFAULT;
-	uv_desc.ByteWidth = sizeof(UVParameter); // 16 bytes（OK）
-
-	Direct3D_GetDevice()->CreateBuffer(&uv_desc, nullptr, &g_pVSConstantBuffer3); // b3 uv
-
+	D3D11_BUFFER_DESC buffer_desc{};
+	buffer_desc.ByteWidth = sizeof(XMFLOAT4X4); // バッファのサイズ
+	buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; // バインドフラグ
+	Direct3D_GetDevice()->CreateBuffer(&buffer_desc, nullptr, &g_pVSConstantBuffer0); // world
+	Direct3D_GetDevice()->CreateBuffer(&buffer_desc, nullptr, &g_pVSConstantBuffer3);
 
 
 	// 事前コンパイル済みピクセルシェーダーの読み込み
@@ -156,7 +140,7 @@ bool ShaderBillboard_Initialize()
 	buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; // バインドフラグ
 	g_pDevice->CreateBuffer(&buffer_desc, nullptr, &g_pPSConstantBuffer0); // world*/
 	D3D11_BUFFER_DESC ps_buffer_desc{};
-	ps_buffer_desc.ByteWidth = sizeof(DirectX::XMFLOAT4);
+	ps_buffer_desc.ByteWidth = sizeof(XMFLOAT4X4);
 	ps_buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	Direct3D_GetDevice()->CreateBuffer(&ps_buffer_desc, nullptr, &g_pPSConstantBuffer0);
 
@@ -171,8 +155,6 @@ void ShaderBillboard_Finalize()
 {
 	SAFE_RELEASE(g_pPixelShader);
 	SAFE_RELEASE(g_pVSConstantBuffer0);
-	SAFE_RELEASE(g_pVSConstantBuffer1);
-	SAFE_RELEASE(g_pVSConstantBuffer2);
 	SAFE_RELEASE(g_pVSConstantBuffer3);
 	SAFE_RELEASE(g_pPSConstantBuffer0);
 	SAFE_RELEASE(g_pInputLayout);
@@ -191,27 +173,35 @@ void ShaderBillboard_SetWorldMatrix(const DirectX::XMMATRIX& matrix)
 	// 定数バッファに行列をセット
 	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer0, 0, nullptr, &transpose, 0, 0);
 }
-
+/*
 void ShaderBillboard_SetViewMatrix(const DirectX::XMMATRIX& matrix)
 {
-	DirectX::XMFLOAT4X4 t;
-	DirectX::XMStoreFloat4x4(&t, DirectX::XMMatrixTranspose(matrix));
-	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer1, 0, nullptr, &t, 0, 0);
+	// 定数バッファ格納用行列の構造体を定義
+	XMFLOAT4X4 transpose;
+
+	// 行列を転置して定数バッファ格納用行列に変換
+	XMStoreFloat4x4(&transpose, XMMatrixTranspose(matrix));
+
+	// 定数バッファに行列をセット
+	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer1, 0, nullptr, &transpose, 0, 0);
 }
 
 void ShaderBillboard_SetProjectionMatrix(const DirectX::XMMATRIX& matrix)
 {
-	DirectX::XMFLOAT4X4 t;
-	DirectX::XMStoreFloat4x4(&t, DirectX::XMMatrixTranspose(matrix));
-	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer2, 0, nullptr, &t, 0, 0);
-}
+	// 定数バッファ格納用行列の構造体を定義
+	XMFLOAT4X4 transpose;
 
+	// 行列を転置して定数バッファ格納用行列に変換
+	XMStoreFloat4x4(&transpose, XMMatrixTranspose(matrix));
+
+	// 定数バッファに行列をセット
+	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer2, 0, nullptr, &transpose, 0, 0);
+}*/
 
 void ShaderBillboard_SetColor(const DirectX::XMFLOAT4& color)
 {
-	DirectX::XMFLOAT4 c = color;//ローカル作ると安全性上がる
 	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pPSConstantBuffer0, 0, nullptr, &c, 0, 0);
+	Direct3D_GetContext()->UpdateSubresource(g_pPSConstantBuffer0, 0, nullptr, &color, 0, 0);
 }
 
 void ShaderBillboard_SetUVParameter(const UVParameter& parameter)
@@ -222,15 +212,24 @@ void ShaderBillboard_SetUVParameter(const UVParameter& parameter)
 
 void ShaderBillboard_Begin()
 {
+	//=======VSSetShader() や VSSetConstantBuffers()がGPUへUpdateSubresource()で送ったデータを元にした描画を命令する関数====
+	// 
+	// 頂点シェーダーとピクセルシェーダーを描画パイプラインに設定
 	Direct3D_GetContext()->VSSetShader(g_pVertexShader, nullptr, 0);
 	Direct3D_GetContext()->PSSetShader(g_pPixelShader, nullptr, 0);
+
+	// 頂点レイアウトを描画パイプラインに設定
 	Direct3D_GetContext()->IASetInputLayout(g_pInputLayout);
 
-	Direct3D_GetContext()->VSSetConstantBuffers(0, 1, &g_pVSConstantBuffer0); // b0 world
-	Direct3D_GetContext()->VSSetConstantBuffers(1, 1, &g_pVSConstantBuffer1); // b1 view
-	Direct3D_GetContext()->VSSetConstantBuffers(2, 1, &g_pVSConstantBuffer2); // b2 projection
-	Direct3D_GetContext()->VSSetConstantBuffers(3, 1, &g_pVSConstantBuffer3); // b3 uv
+	// 定数バッファ(VS)を描画パイプラインに設定
+	Direct3D_GetContext()->VSSetConstantBuffers(0, 1, &g_pVSConstantBuffer0); // world
+	Direct3D_GetContext()->VSSetConstantBuffers(2, 1, &g_pVSConstantBuffer3);
 
+	// 定数バッファ（PS）を設定（色用）
 	Direct3D_GetContext()->PSSetConstantBuffers(0, 1, &g_pPSConstantBuffer0);
-}
 
+	//サンプラーステイトを描画パイプラインに設定
+	//g_pContext->PSSetSamplers(0, 1, &g_pSamplerState);
+	// ◎ 3Dは遠景の床などに効く異方性
+	//Sampler_SetFilterAnisotropic();
+}

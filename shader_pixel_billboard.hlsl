@@ -9,7 +9,9 @@
 
 struct PS_IN
 {
-    float4 posH : SV_POSITION;
+    float4 posH : SV_POSITION; //データ型　変数名　：　入力セマンティクス
+    float4 posW : POSITION0;
+    float3 normalW : NORMAL0;
     float4 color : COLOR0;
     float2 uv : TEXCOORD0;
 };
@@ -17,15 +19,16 @@ struct PS_IN
 Texture2D tex : register(t0);
 SamplerState samp : register(s0);
 
-cbuffer PS_CONSTANT_COLOR : register(b0)
-{
-    float4 mul_color; // 16byte
-};
-
 float4 main(PS_IN pi) : SV_TARGET
 {
+    //direct3d.cppのbd.AlphaToCoverageEnable = FALSE; をコードで書いてみた
     float4 color = tex.Sample(samp, pi.uv) * pi.color;
-    clip(color.a - 0.1f);
+    clip(sin(pi.uv.x * 500));//「clip」テクスチャを一定間隔で切り取る表現
+    if (color.a < 0.1f)
+    {
+        discard;//そのピクセルは描画されない
+        //clip(-1);
+    }
     
-    return color;
+        return color;
 }
