@@ -232,8 +232,8 @@ DirectXやWIC（画像読み込み系）など、COMベースのAPIを使う前にこれが必要。*/
                //dt.SetText("ABCDE\n");//文字の途中で\n入れるとエラーなる　末尾のみ
                // dt.SetText("FG\n", { 0.0f,1.0f,1.0f,1.0f });
 
-               dt.Draw();
-               dt.Clear();
+              // dt.Draw();
+               //dt.Clear();
 #endif
 
                 Direct3D_Present();

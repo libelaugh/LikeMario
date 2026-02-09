@@ -10,10 +10,12 @@
 #include"mouse.h"
 #include "system_timer.h"
 #include "imgui_manager.h" 
-#include "imgui.h"
-#include "imgui_impl_win32.h"
+//#include "imgui.h"
+//#include "imgui_impl_win32.h"
 #include<algorithm>
 #include <Windows.h>
+#include <tchar.h>
+
 
 
 /*-----------------------------------------
@@ -24,8 +26,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 /*-----------------------------------------
     ウィンドウ情報
 -----------------------------------------*/
-static constexpr char WINDOW_CLASS[] = "GameWindow";  // メインウィンドウクラス名
-static constexpr char TITLE[] = "ウィンドウ表示";      // タイトルバーのテキスト
+//static constexpr char WINDOW_CLASS[] = "GameWindow";  // メインウィンドウクラス名
+//static constexpr char TITLE[] = "ウィンドウ表示";      // タイトルバーのテキスト
+// 変更後（Unicode対応）
+static const TCHAR* WINDOW_CLASS = TEXT("GameWindow");
+static const TCHAR* TITLE = TEXT("ウィンドウ表示");
+
 
 
 

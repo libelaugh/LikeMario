@@ -11,11 +11,11 @@
 #define MODEL_H
 
 
+#pragma comment (lib, "Assimp/assimp-vc143-mt.lib")
 #include "Assimp/assimp/scene.h"
 #include "Assimp/assimp/cimport.h"
 #include "Assimp/assimp/postprocess.h"
 #include "Assimp/assimp/matrix4x4.h"
-#pragma comment (lib, "assimp-vc143-mt.lib")
 #include <unordered_map>
 
 #include"collision.h"

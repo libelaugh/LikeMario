@@ -27,7 +27,7 @@ bool ShaderDepth_Initialize()
 	std::ifstream ifs_vs("shader_vertex_depth.cso", std::ios::binary);
 
 	if (!ifs_vs) {
-		MessageBox(nullptr, "頂点シェーダーの読み込みに失敗しました\n\nshader_vertex_depth.cso", "エラー", MB_OK);
+		MessageBox(nullptr, TEXT("頂点シェーダーの読み込みに失敗しました\n\nshader_vertex_depth.cso"), TEXT("エラー"), MB_OK);
 		return false;
 	}
 
@@ -83,7 +83,7 @@ bool ShaderDepth_Initialize()
 	// 事前コンパイル済みピクセルシェーダーの読み込み
 	std::ifstream ifs_ps("shader_pixel_depth.cso", std::ios::binary);
 	if (!ifs_ps) {
-		MessageBox(nullptr, "ピクセルシェーダーの読み込みに失敗しました\n\nshader_pixel_depth.cso", "エラー", MB_OK);
+		MessageBox(nullptr, TEXT("ピクセルシェーダーの読み込みに失敗しました\n\nshader_pixel_depth.cso"), TEXT("エラー"), MB_OK);
 		return false;
 	}
 

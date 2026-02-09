@@ -124,12 +124,14 @@ bool Direct3D_Initialize(HWND hWnd)
         &g_pDeviceContext);
 
     if (FAILED(hr)) {
-		MessageBox(hWnd, "Direct3Dの初期化に失敗しました", "エラー", MB_OK);
+		//MessageBox(hWnd, "Direct3Dの初期化に失敗しました", "エラー", MB_OK);
+		MessageBoxA(hWnd, "Direct3Dの初期化に失敗しました", "エラー", MB_OK);
         return false;
     }
 
 	if (!configureBackBuffer()) {
-		MessageBox(hWnd, "バックバッファの設定に失敗しました", "エラー", MB_OK);
+		//MessageBox(hWnd, "バックバッファの設定に失敗しました", "エラー", MB_OK);
+		MessageBoxA(hWnd, "バックバッファの設定に失敗しました", "エラー", MB_OK);
 		return false;
 	}
 

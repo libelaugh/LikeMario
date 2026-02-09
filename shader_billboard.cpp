@@ -1,235 +1,203 @@
 /*==============================================================================
 
-　　　ビルボードシェーダ[shader_billboard.h]
-														 Author : Tanaka Kouki
-														 Date   : 2025/11/14
---------------------------------------------------------------------------------
+  Billboard shader wrapper [shader_billboard.cpp]
+  Author : Tanaka Kouki
+  Date   : 2025/11/14
+
+  Fix notes (2026-01-19):
+  - VS/PS interface + constant buffer slots were mismatched.
+  - View/Projection/UV/Color constant buffers are now created and bound correctly.
 
 ==============================================================================*/
 
 #include "shader_billboard.h"
 #include "debug_ostream.h"
-#include"direct3d.h"
-#include"sampler.h"
-#include <DirectXMath.h>
+#include "direct3d.h"
+#include "sampler.h"
+
 #include <d3d11.h>
 #include <fstream>
 
 using namespace DirectX;
 
-static ID3D11VertexShader* g_pVertexShader = nullptr; //このポインタはCreateVertexShader()でHLSLのcsoファイルをGPUに渡した後にハンドルを貰う
-static ID3D11InputLayout* g_pInputLayout = nullptr;
-static ID3D11Buffer* g_pVSConstantBuffer0 = nullptr; // 定数バッファb0: world
-static ID3D11Buffer* g_pVSConstantBuffer3 = nullptr; // 定数バッファb3
-static ID3D11Buffer* g_pPSConstantBuffer0 = nullptr; // 定数バッファb0
-static ID3D11PixelShader* g_pPixelShader = nullptr;
+static ID3D11VertexShader* g_pVertexShader = nullptr;
+static ID3D11InputLayout*  g_pInputLayout  = nullptr;
+static ID3D11PixelShader*  g_pPixelShader  = nullptr;
 
+// VS: b0 world, b1 view, b2 projection, b3 uv
+static ID3D11Buffer* g_pVSConstantBufferWorld = nullptr;
+static ID3D11Buffer* g_pVSConstantBufferView  = nullptr;
+static ID3D11Buffer* g_pVSConstantBufferProj  = nullptr;
+static ID3D11Buffer* g_pVSConstantBufferUV    = nullptr;
+
+// PS: b0 color
+static ID3D11Buffer* g_pPSConstantBufferColor = nullptr;
+
+static bool LoadFileBinary(const char* path, unsigned char** outData, size_t* outSize)
+{
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs) {
+        return false;
+    }
+    ifs.seekg(0, std::ios::end);
+    const std::streamsize size = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
+
+    if (size <= 0) {
+        return false;
+    }
+
+    unsigned char* data = new unsigned char[(size_t)size];
+    ifs.read((char*)data, size);
+    ifs.close();
+
+    *outData = data;
+    *outSize = (size_t)size;
+    return true;
+}
 
 bool ShaderBillboard_Initialize()
 {
-	HRESULT hr; // 戻り値格納用
+    HRESULT hr;
 
+    // --- Vertex shader ---
+    unsigned char* vsBin = nullptr;
+    size_t vsSize = 0;
+    if (!LoadFileBinary("shader_vertex_billboard.cso", &vsBin, &vsSize)) {
+        MessageBox(nullptr,
+            TEXT("Failed to load shader_vertex_billboard.cso"),
+            TEXT("Error"), MB_OK);
+        return false;
+    }
 
-	// 事前コンパイル済み頂点シェーダーの読み込み
-	//メモリにcsoファイル読み込む(GPUはまだHLSL文を知らない）
-	//csoファイルはビルド時に作られる
-	std::ifstream ifs_vs("shader_vertex_billboard.cso", std::ios::binary);
+    hr = Direct3D_GetDevice()->CreateVertexShader(vsBin, vsSize, nullptr, &g_pVertexShader);
+    if (FAILED(hr)) {
+        hal::dout << "ShaderBillboard_Initialize(): CreateVertexShader failed" << std::endl;
+        delete[] vsBin;
+        return false;
+    }
 
-	if (!ifs_vs) {
-		MessageBox(nullptr, "頂点シェーダーの読み込みに失敗しました\n\nshader_vertex_billboard.cso", "エラー", MB_OK);
-		return false;
-	}
+    // Input layout must match billboard vertex buffer (POSITION/COLOR/TEXCOORD)
+    D3D11_INPUT_ELEMENT_DESC layout[] = {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    };
 
-	// ファイルサイズを取得
-	ifs_vs.seekg(0, std::ios::end); // ファイルポインタを末尾に移動
-	std::streamsize filesize = ifs_vs.tellg(); // ファイルポインタの位置を取得（つまりファイルサイズ）
-	ifs_vs.seekg(0, std::ios::beg); // ファイルポインタを先頭に戻す
+    hr = Direct3D_GetDevice()->CreateInputLayout(layout, (UINT)ARRAYSIZE(layout), vsBin, vsSize, &g_pInputLayout);
+    delete[] vsBin;
+    if (FAILED(hr)) {
+        hal::dout << "ShaderBillboard_Initialize(): CreateInputLayout failed" << std::endl;
+        return false;
+    }
 
-	// バイナリデータを格納するためのバッファを確保
-	unsigned char* vsbinary_pointer = new unsigned char[filesize];
+    // --- Constant buffers ---
+    {
+        D3D11_BUFFER_DESC bd{};
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
-	ifs_vs.read((char*)vsbinary_pointer, filesize); // バイナリデータを読み込む
-	ifs_vs.close(); // ファイルを閉じる
+        bd.ByteWidth = sizeof(XMFLOAT4X4);
+        if (FAILED(Direct3D_GetDevice()->CreateBuffer(&bd, nullptr, &g_pVSConstantBufferWorld))) return false;
+        if (FAILED(Direct3D_GetDevice()->CreateBuffer(&bd, nullptr, &g_pVSConstantBufferView)))  return false;
+        if (FAILED(Direct3D_GetDevice()->CreateBuffer(&bd, nullptr, &g_pVSConstantBufferProj)))  return false;
 
+        bd.ByteWidth = sizeof(UVParameter); // 16 bytes
+        if (FAILED(Direct3D_GetDevice()->CreateBuffer(&bd, nullptr, &g_pVSConstantBufferUV))) return false;
 
-	// 作成部（Initialize 内）
-	/*D3D11_BUFFER_DESC bd0{};
-	bd0.ByteWidth = sizeof(VSConst0);                 // ★ b0: view+proj の2行列
-	bd0.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	g_pDevice->CreateBuffer(&bd0, nullptr, &g_pVSConstantBuffer0);
+        bd.ByteWidth = sizeof(XMFLOAT4); // 16 bytes
+        if (FAILED(Direct3D_GetDevice()->CreateBuffer(&bd, nullptr, &g_pPSConstantBufferColor))) return false;
+    }
 
-	D3D11_BUFFER_DESC bd1{};
-	bd1.ByteWidth = sizeof(DirectX::XMFLOAT4X4);      // ★ b1: world 1行列
-	bd1.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	g_pDevice->CreateBuffer(&bd1, nullptr, &g_pVSConstantBuffer1);*/
+    // --- Pixel shader ---
+    unsigned char* psBin = nullptr;
+    size_t psSize = 0;
+    if (!LoadFileBinary("shader_pixel_billboard.cso", &psBin, &psSize)) {
+        MessageBox(nullptr,
+            TEXT("Failed to load shader_pixel_billboard.cso"),
+            TEXT("Error"), MB_OK);
+        return false;
+    }
 
-	// Initialize内
-	/*D3D11_BUFFER_DESC bd{};
-	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bd.ByteWidth = sizeof(DirectX::XMFLOAT4X4);
-	g_pDevice->CreateBuffer(&bd, nullptr, &g_pVSConstantBuffer0); // world
-	g_pDevice->CreateBuffer(&bd, nullptr, &g_pVSConstantBuffer1); // view
-	g_pDevice->CreateBuffer(&bd, nullptr, &g_pVSConstantBuffer2); // proj*/
+    hr = Direct3D_GetDevice()->CreatePixelShader(psBin, psSize, nullptr, &g_pPixelShader);
+    delete[] psBin;
+    if (FAILED(hr)) {
+        hal::dout << "ShaderBillboard_Initialize(): CreatePixelShader failed" << std::endl;
+        return false;
+    }
 
+    // Sampler state is managed globally in sampler.cpp
+    Sampler_SetFilterAnisotropic();
 
-	/*======ビルド後の実行時にCreateVertexShader()で.csoファイルに圧縮されたHLSLコードをGPUに渡す*/
-	// 頂点シェーダーの作成
-	hr = Direct3D_GetDevice()->CreateVertexShader(vsbinary_pointer, filesize, nullptr, &g_pVertexShader);
+    // Default values (avoid using uninitialized CBs)
+    ShaderBillboard_SetWorldMatrix(XMMatrixIdentity());
+    ShaderBillboard_SetViewMatrix(XMMatrixIdentity());
+    ShaderBillboard_SetProjectionMatrix(XMMatrixIdentity());
+    ShaderBillboard_SetUVParameter({ {1.0f, 1.0f}, {0.0f, 0.0f} });
+    ShaderBillboard_SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
 
-	if (FAILED(hr)) {
-		hal::dout << "ShaderBillboard_Initialize() : 頂点シェーダーの作成に失敗しました" << std::endl;
-		delete[] vsbinary_pointer; // メモリリークしないようにバイナリデータのバッファを解放
-		return false;
-	}
-
-
-	// 頂点レイアウトの定義
-	D3D11_INPUT_ELEMENT_DESC layout[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-
-	UINT num_elements = ARRAYSIZE(layout); // 配列の要素数を取得
-
-	// 頂点レイアウトの作成
-	hr = Direct3D_GetDevice()->CreateInputLayout(layout, num_elements, vsbinary_pointer, filesize, &g_pInputLayout);
-
-	delete[] vsbinary_pointer; // バイナリデータのバッファを解放
-
-	if (FAILED(hr)) {
-		hal::dout << "ShaderBillboard_Initialize() : 頂点レイアウトの作成に失敗しました" << std::endl;
-		return false;
-	}
-	// 頂点シェーダー用定数バッファの作成
-	D3D11_BUFFER_DESC buffer_desc{};
-	buffer_desc.ByteWidth = sizeof(XMFLOAT4X4); // バッファのサイズ
-	buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; // バインドフラグ
-	Direct3D_GetDevice()->CreateBuffer(&buffer_desc, nullptr, &g_pVSConstantBuffer0); // world
-	Direct3D_GetDevice()->CreateBuffer(&buffer_desc, nullptr, &g_pVSConstantBuffer3);
-
-
-	// 事前コンパイル済みピクセルシェーダーの読み込み
-	std::ifstream ifs_ps("shader_pixel_billboard.cso", std::ios::binary);
-	if (!ifs_ps) {
-		MessageBox(nullptr, "ピクセルシェーダーの読み込みに失敗しました\n\nshader_pixel_billboard.cso", "エラー", MB_OK);
-		return false;
-	}
-
-	ifs_ps.seekg(0, std::ios::end);
-	filesize = ifs_ps.tellg();
-	ifs_ps.seekg(0, std::ios::beg);
-
-	unsigned char* psbinary_pointer = new unsigned char[filesize];
-	ifs_ps.read((char*)psbinary_pointer, filesize);
-	ifs_ps.close();
-
-	// ピクセルシェーダーの作成
-	hr = Direct3D_GetDevice()->CreatePixelShader(psbinary_pointer, filesize, nullptr, &g_pPixelShader);
-
-	delete[] psbinary_pointer; // バイナリデータのバッファを解放
-
-	if (FAILED(hr)) {
-		hal::dout << "ShaderBillboard_Initialize() : ピクセルシェーダーの作成に失敗しました" << std::endl;
-		return false;
-	}
-
-	// ピクセルシェーダー用定数バッファの作成
-	/*D3D11_BUFFER_DESC buffer_desc{};
-	buffer_desc.ByteWidth = sizeof(XMFLOAT4X4); // バッファのサイズ
-	buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; // バインドフラグ
-	g_pDevice->CreateBuffer(&buffer_desc, nullptr, &g_pPSConstantBuffer0); // world*/
-	D3D11_BUFFER_DESC ps_buffer_desc{};
-	ps_buffer_desc.ByteWidth = sizeof(XMFLOAT4X4);
-	ps_buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	Direct3D_GetDevice()->CreateBuffer(&ps_buffer_desc, nullptr, &g_pPSConstantBuffer0);
-
-
-	/*==サンプラーステイト設定はsampler.cpp/hに移した*/
-	Sampler_SetFilterAnisotropic();
-
-	return true;
+    return true;
 }
 
 void ShaderBillboard_Finalize()
 {
-	SAFE_RELEASE(g_pPixelShader);
-	SAFE_RELEASE(g_pVSConstantBuffer0);
-	SAFE_RELEASE(g_pVSConstantBuffer3);
-	SAFE_RELEASE(g_pPSConstantBuffer0);
-	SAFE_RELEASE(g_pInputLayout);
-	SAFE_RELEASE(g_pVertexShader);
+    SAFE_RELEASE(g_pPSConstantBufferColor);
+    SAFE_RELEASE(g_pVSConstantBufferUV);
+    SAFE_RELEASE(g_pVSConstantBufferProj);
+    SAFE_RELEASE(g_pVSConstantBufferView);
+    SAFE_RELEASE(g_pVSConstantBufferWorld);
+    SAFE_RELEASE(g_pInputLayout);
+    SAFE_RELEASE(g_pPixelShader);
+    SAFE_RELEASE(g_pVertexShader);
 }
 
-void ShaderBillboard_SetWorldMatrix(const DirectX::XMMATRIX& matrix)
+static void UpdateMatrixCB(ID3D11Buffer* cb, const XMMATRIX& m)
 {
-	// 定数バッファ格納用行列の構造体を定義
-	XMFLOAT4X4 transpose;
-
-	// 行列を転置して定数バッファ格納用行列に変換
-	XMStoreFloat4x4(&transpose, XMMatrixTranspose(matrix));
-
-	//===================UpdateSubresourceはデータをGPUに渡す関数=====================
-	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer0, 0, nullptr, &transpose, 0, 0);
-}
-/*
-void ShaderBillboard_SetViewMatrix(const DirectX::XMMATRIX& matrix)
-{
-	// 定数バッファ格納用行列の構造体を定義
-	XMFLOAT4X4 transpose;
-
-	// 行列を転置して定数バッファ格納用行列に変換
-	XMStoreFloat4x4(&transpose, XMMatrixTranspose(matrix));
-
-	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer1, 0, nullptr, &transpose, 0, 0);
+    XMFLOAT4X4 t;
+    XMStoreFloat4x4(&t, XMMatrixTranspose(m));
+    Direct3D_GetContext()->UpdateSubresource(cb, 0, nullptr, &t, 0, 0);
 }
 
-void ShaderBillboard_SetProjectionMatrix(const DirectX::XMMATRIX& matrix)
+void ShaderBillboard_SetWorldMatrix(const XMMATRIX& matrix)
 {
-	// 定数バッファ格納用行列の構造体を定義
-	XMFLOAT4X4 transpose;
+    UpdateMatrixCB(g_pVSConstantBufferWorld, matrix);
+}
 
-	// 行列を転置して定数バッファ格納用行列に変換
-	XMStoreFloat4x4(&transpose, XMMatrixTranspose(matrix));
-
-	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer2, 0, nullptr, &transpose, 0, 0);
-}*/
-
-void ShaderBillboard_SetColor(const DirectX::XMFLOAT4& color)
+void ShaderBillboard_SetViewMatrix(const XMMATRIX& matrix)
 {
-	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pPSConstantBuffer0, 0, nullptr, &color, 0, 0);
+    UpdateMatrixCB(g_pVSConstantBufferView, matrix);
+}
+
+void ShaderBillboard_SetProjectionMatrix(const XMMATRIX& matrix)
+{
+    UpdateMatrixCB(g_pVSConstantBufferProj, matrix);
+}
+
+void ShaderBillboard_SetColor(const XMFLOAT4& color)
+{
+    Direct3D_GetContext()->UpdateSubresource(g_pPSConstantBufferColor, 0, nullptr, &color, 0, 0);
 }
 
 void ShaderBillboard_SetUVParameter(const UVParameter& parameter)
 {
-	// 定数バッファに行列をセット
-	Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBuffer3, 0, nullptr, &parameter, 0, 0);
+    Direct3D_GetContext()->UpdateSubresource(g_pVSConstantBufferUV, 0, nullptr, &parameter, 0, 0);
 }
 
 void ShaderBillboard_Begin()
 {
-	//=======VSSetShader() や VSSetConstantBuffers()がGPUへUpdateSubresource()で送ったデータを元にした描画を命令する関数====
-	// 
-	// 頂点シェーダーとピクセルシェーダーを描画パイプラインに設定
-	Direct3D_GetContext()->VSSetShader(g_pVertexShader, nullptr, 0);
-	Direct3D_GetContext()->PSSetShader(g_pPixelShader, nullptr, 0);
+    auto* ctx = Direct3D_GetContext();
 
-	// 頂点レイアウトを描画パイプラインに設定
-	Direct3D_GetContext()->IASetInputLayout(g_pInputLayout);
+    ctx->VSSetShader(g_pVertexShader, nullptr, 0);
+    ctx->PSSetShader(g_pPixelShader, nullptr, 0);
+    ctx->IASetInputLayout(g_pInputLayout);
 
-	// 定数バッファ(VS)を描画パイプラインに設定
-	Direct3D_GetContext()->VSSetConstantBuffers(0, 1, &g_pVSConstantBuffer0); // world
-	Direct3D_GetContext()->VSSetConstantBuffers(2, 1, &g_pVSConstantBuffer3);
+    ID3D11Buffer* vsCBs[4] = {
+        g_pVSConstantBufferWorld,
+        g_pVSConstantBufferView,
+        g_pVSConstantBufferProj,
+        g_pVSConstantBufferUV,
+    };
+    ctx->VSSetConstantBuffers(0, 4, vsCBs);
 
-	// 定数バッファ（PS）を設定（色用）
-	Direct3D_GetContext()->PSSetConstantBuffers(0, 1, &g_pPSConstantBuffer0);
-
-	//サンプラーステイトを描画パイプラインに設定
-	//g_pContext->PSSetSamplers(0, 1, &g_pSamplerState);
-	// ◎ 3Dは遠景の床などに効く異方性
-	//Sampler_SetFilterAnisotropic();
+    ctx->PSSetConstantBuffers(0, 1, &g_pPSConstantBufferColor);
 }
